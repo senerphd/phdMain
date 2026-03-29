@@ -68,8 +68,41 @@ t.u_V 	            =	 testData.u_V;	                    %	Control Output 	V
 t.a_mPs2 	        =	 testData.a_G * 9.80665;	        %	Cylinder Acceleration Actual (measured)	mPs2
 t.F_piston_from_a_N =	 testData.F_piston_from_a_N;	    %	Force Piston (calculated from m*a)	N
 t.r_a_RMC_mPs2 	    =	 testData.r_a_RMC_mmPs2 * 1e-3;	    %	Acceleration Reference 	mPs2
+t.F_friction_N      =    testData.F_piston_N - testData.F_piston_from_a_N; % Friction Force N
+%% Generate time series variables 
+fieldNames = fieldnames(t);
 
+% Zaman vektörünü sabitle (t.t)
+if isfield(t, 't')
+    timeVec = t.t;
+else
+    error('Struct içinde "t" isimli zaman verisi bulunamadı.');
+end
+
+% Her bir alan için döngü
+for i = 1:length(fieldNames)
+    varName = fieldNames{i};
     
-
+    % Zaman değişkeninin (t.t) kendisini atla, onu zaten referans olarak kullanıyoruz
+    % if strcmp(varName, 't')
+    %     continue;
+    % end
+    
+    % Veriyi çek
+    dataVec = t.(varName);
+    
+    % Boyut kontrolü (Zaman ve Veri boyutu eşleşmeli)
+    if length(dataVec) == length(timeVec)
+        
+        % 1. Timeseries nesnesini oluştur
+        ts = timeseries(dataVec, timeVec);
+        ts.Name = varName; % Plot başlıklarında görünmesi için
+        
+        % 2. Workspace'e aynı isimle değişken olarak at
+        assignin('base', varName, ts);
+        
+        fprintf('%s \t \t değişkeni timeseries olarak oluşturuldu.\n', varName);
+    end
+end
 
 end

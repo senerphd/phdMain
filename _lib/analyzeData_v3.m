@@ -11,7 +11,7 @@ numOfData = length(allDataCell);
 
 %% Select Test Data 
 sData = d_1 ;
-test_data =sData; 
+test_data = sData; 
 
 clc
 generateTimeSeriesVariables(sData);

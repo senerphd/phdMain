@@ -2,8 +2,8 @@
 Ts = 1e-3;                  % s Sampling Time
 Fs = 1/Ts;                  % Hz Sampling Frequency
 %% Servo Valve Parameters 
-XV_MAX     = 0.001016;                 % m Max spool position
-XV_MIN     = -XV_MAX;                 % m Min spool position
+XV_MAX     = 0.001016;                  % m Max spool position
+XV_MIN     = -XV_MAX;                   % m Min spool position
 W           = 2.5088e-3;                % m Orifice width
 %% Hydraulic Cylinder Parameters
 M           = 3.4; % kg
@@ -15,7 +15,7 @@ AEFF        = A_PISTON - A_ROD;         % Effective Area m2
 L_STROKE    = 190.16e-3;                % Total Stroke Length m
 V01         = AEFF * (L_STROKE/2);      % Initial Chamber Volume in neural position m^3
 V02         = AEFF * (L_STROKE/2);      % Initial Chamber Volume in neural position m^3
-V_DEAD      = 1.5315e-05;                % 15.3 cm^3 dead volume <- 
+V_DEAD      = 1.5315e-05;               % 15.3 cm^3 dead volume <- 
 
 C_T = 3.9933e-13;
 
@@ -32,3 +32,11 @@ K           = 0.00000334;
 Qs_at_x0    = 0.00001146; 
 x0          = 0.00053428 ; 
 k           = 1.82709080; 
+
+
+% ------------------------------------- 
+% K değeri 	    : 	 0.00000340 
+% Qs_at_x0 	    : 	 0.00001133 
+% x0 	 	 	: 	 0.00052030 
+% k 	 	 	:  	 1.38401705 
+% ------------------------------------- 
