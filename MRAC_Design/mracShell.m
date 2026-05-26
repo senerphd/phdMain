@@ -12,7 +12,7 @@ Bp     = 38;                    % Viskoz sönümleme katsayısı [N/(m/s)]
 beta_e = 1.6e9;                 % Hidrolik yağın efektif elastikiyet (bulk) modülü [Pa]
 Ve     = 2*V_0;                 % Efektif hacim [m^3]
 Kq     = 1.1003e-2;              % Akış kazancı [(m^3/s)/m]
-Kv     = 1;                     % Servo valf spool kazancı [m/V]
+Kv     = 2.5e-4;                % Servo valf kazancı [m/u_perc%] (Simulink: xv=Const2*Const1*u_perc=2.5e-4*u_perc)
 Kc     = 3.9633e-13; %3.9633e-13;            % Basınç-akış katsayısı [(m^3/s)/Pa]
 Cip    = 3.9933e-13;            % Silindir içi kaçak katsayısı [(m^3/s)/Pa]
 %% Referans modelin tanımlanması
@@ -20,15 +20,18 @@ am1 = 2.707E9;
 am2 = 9.528E7; 
 am3 = 145.384; 
 
-bm3 = am1; % DC Gain olmasın? 
+% DÜZELTME: Am(3,1) ve Am(3,2) pozitif olmalı - aksi halde referans model
+% kararsız olur (char. poly sabit terimi negatif olur).
+% Doğru Am ile özdeğerler: ~-28±28i, -100 (kararlı)
+Am = [0,        1,          0;
+      0,        -Bp/m,      -A_c/m;
+      am1,      am2,        -am3];  % FIX: +am1, +am2 (işaret düzeltildi)
 
-Am = [0,        1,          0; 
-      0,        -Bp/m,      -A_c/m; 
-      -am1,     -am2,       -am3]; 
+% DÜZELTME: bm3 negatif olmalı (DC kazanç için x1_ss = r sağlanır)
+bm3 = -am1;
+Bm = [0; 0; bm3];
 
-Bm = [0; 0; bm3]; 
-Cm = eye(3); 
-
+Cm = eye(3);
 %% Dinamik sistemin lineer halinin tanımlanması
 % Durum değişkenlerini okuma
 % x1 = x(1); % x_p
@@ -49,21 +52,18 @@ A_mat = [0,     1,                  0;
 
 B_mat = [0; 0; (-4*beta_e/Ve)*(Kq*Kv)]; 
 
-% A32, A33 ve b3 değerlerinin senin parametrelerinle hesaplanması
-A32 = A_mat(3,2);
-A33 = A_mat(3,3);
-b3  = B_mat(3,1);
-
-% İdeal Başlangıç Kazançları (Kx0 ve Kr0)
-Kx1_0 = -am1 / b3;
-Kx2_0 = (-am2 - A32) / b3;
-Kx3_0 = (-am3 - A33) / b3;
-
-Kx0 = [Kx1_0; Kx2_0; Kx3_0]; % 3x1 Kx Integrator Başlangıç Koşulu
-Kr0 = am1 / b3;             % Skaler Kr Integrator Başlangıç Koşulu
-
 %% Lyapunov Denklemi
-Q = eye(3);
-P = lyap(Am', Q);
-PB_vec = P * B_mat; % 3x1 Sabit Vektör
+% Q = eye(3);
+Q = diag([1e6,1e3,1]);
+
+P = lyap(Am', Q);       % Am kararlı olduğundan P pozitif tanımlı olacak
+PB_vec = P * B_mat;     % 3x1 sabit vektör (Lyapunov adaptasyon çekirdeği)
+
+% gamma_M = 1 / (norm(Bm)^2 * norm(P));  % normalize başlangıç
+gamma_M  = 1e-12; 
+gamma_L = gamma_M;
+
+
+%% 
+%%
 %%
