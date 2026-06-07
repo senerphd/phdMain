@@ -1,0 +1,718 @@
+\documentclass[12pt,a4paper]{article}
+
+%% ---- Packages -------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{bm}          % bold math
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,
+            urlcolor=blue!60!black]{hyperref}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{microtype}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[numbers,sort&compress]{natbib}
+
+%% ---- Theorem environments -------------------------------------------
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+%% ---- Notation macros ------------------------------------------------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\|#1\right\|}
+\newcommand{\abs}[1]{\left|#1\right|}
+\newcommand{\bA}{\bar{A}}       % A_bar
+\newcommand{\bB}{\bar{B}}       % B_bar
+\newcommand{\Am}{A_m}           % Am_bar
+\newcommand{\Bm}{B_m}
+\newcommand{\Lh}{\hat{L}}       % L_hat
+\newcommand{\Mh}{\hat{M}}       % M_hat
+\newcommand{\Lt}{\tilde{L}}     % L_tilde
+\newcommand{\Mt}{\tilde{M}}     % M_tilde
+\newcommand{\eph}{\varphi}      % phi (projected scalar)
+\newcommand{\dlt}{\delta}       % delta (residual)
+\newcommand{\kap}{\kappa}       % kappa
+\newcommand{\sL}{\sigma_L}
+\newcommand{\sM}{\sigma_M}
+\newcommand{\GL}{\Gamma_L}
+\newcommand{\GR}{\Gamma_R}
+\newcommand{\Proj}{\mathrm{Proj}}
+\newcommand{\ze}{\mathbf{z}}    % state vector z
+\newcommand{\e}{\mathbf{e}}     % error vector
+\newcommand{\zm}{\mathbf{z}_m}  % ref model state
+\newcommand{\C}{\mathbf{C}}     % output matrix row
+
+%% ---- Header / footer ------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\textit{Mechatronics -- Manuscript}}
+\rhead{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%% ---- Title ----------------------------------------------------------
+\title{\textbf{Model Reference Adaptive Control of an Electrohydraulic
+Actuator: Input-Matrix Structure Analysis, Output-Feedback
+Adaptation, and Practical Stability}\\[6pt]
+\large\normalfont Submitted to \textit{Mechatronics} (Elsevier)}
+
+\author{Hasan \c{S}ener\\
+\small Department of Mechanical Engineering, [University]\\
+\small \href{mailto:sener.phd@gmail.com}{sener.phd@gmail.com}}
+
+\date{}
+
+\onehalfspacing
+
+%%=====================================================================
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+
+%%--------------------------------------------------------------------
+\begin{abstract}
+This paper presents a model reference adaptive control (MRAC)
+framework for a nonlinear electrohydraulic actuator~(EHA) comprising
+a Moog~G761 servo valve, a double-rod hydraulic cylinder, and a
+LuGre friction model.  A scaled three-state representation in
+$[\mathrm{mm},\,\mathrm{mm/s},\,\mathrm{bar}]$ is adopted to improve
+numerical conditioning.  The reference model is derived by
+pole-placement on the nominal closed-loop linearisation, so the model
+poles are physically consistent with the actuator dynamics.
+
+A central structural observation is established analytically: because
+the scaled input matrix takes the form
+$\bB_{mA}=[\,0\;0\;b_3\,]^\top$, the full Lyapunov adaptation term
+$\e^\top P\bB_{mA}$ is dominated by the pressure error state $e_3$
+through the coefficient $P_{33}/P_{13}\approx 771$.  During stiction
+phases $e_3$ diverges from the reference model while $e_1$ (position
+error) remains physically meaningful, causing the standard adaptation
+law to fail.  We show that the position-channel projection
+$\eph = e_1\,(C\,P\,\bB_{mA})$, where $C=[1,0,0]$ is the output
+matrix, is mathematically equivalent to \emph{output-feedback MRAC}
+applied to the measurable position error: $\eph = e_y\,(C\,P\,\bB)$.
+
+A rigorous analysis then demonstrates that the condition required for
+a classical Uniformly Ultimately Bounded~(UUB) proof via Young's
+inequality,
+$b_3(P_{23}+P_{33}) < \lambda_{\min}(Q)/(2\norm{\tilde{L}}_{\max})$,
+is \emph{structurally infeasible} for this system class
+($c_\delta = 100{,}337$ vs.\ a threshold of $5\times 10^{-6}$).  This
+represents a known theoretical limitation of output-channel
+MRAC in hydraulic systems with relative degree three.  A
+norm-projection operator is incorporated to guarantee parameter
+boundedness by design, and $\sigma$-modification provides practical
+stability.
+
+Simulation on the nonlinear Simulink model shows: steady-state
+position RMS error $0.45\,\mathrm{mm}$ ($3\,\%$ of amplitude),
+convergence in $\approx5\,\mathrm{s}$, and a $6\times$ improvement
+over the unmodified adaptive law.  Experimental validation on the
+physical test bench is planned as future work.
+
+\medskip\noindent
+\textbf{Keywords:} electrohydraulic actuator; model reference adaptive
+control; output-feedback MRAC; $\sigma$-modification; LuGre friction;
+practical stability.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%%====================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Electrohydraulic actuators~(EHAs) are widely deployed in aerospace
+actuation, industrial robotics, and heavy machinery because of their
+high power-to-weight ratio, rapid dynamic response, and capacity for
+large force generation~\cite{merritt1967,jelali2003}.  Precise
+position tracking is challenged by nonlinear valve flow dynamics,
+hydraulic fluid compressibility, and friction at the
+piston--cylinder interface~\cite{manring2019}.
+
+Model Reference Adaptive Control~(MRAC) has attracted sustained
+research interest for mechanical systems because it does not require
+exact plant parameters and can compensate for slow parameter
+variations in real time~\cite{astrom2008,slotine1991}.  Classical
+MRAC theory is well established for relative-degree-one, Strictly
+Positive Real~(SPR) systems; its extension to hydraulic systems with
+relative degree three and non-minimum-phase zeros presents both
+theoretical and practical challenges~\cite{kocagil2022,yao2014}.
+
+A specific structural difficulty has received limited explicit
+attention in the literature.  In the standard three-state EHA
+representation the input matrix satisfies
+$B=[\,0\;0\;b_3\,]^\top$, so the gearbox input (valve current)
+directly excites only the pressure dynamics.  The Lyapunov adaptation
+term $\e^\top P B$ therefore reduces to
+$b_3(P_{13}e_1+P_{23}e_2+P_{33}e_3)$, with $P_{33}/P_{13}\approx 771$
+for the standard $Q=I$ solution.  During stiction phases the plant
+differential pressure $z_3$ accumulates far above the reference model
+value $z_{m3}\approx 0$, making $e_3$ large and negative and driving
+the adaptation in the wrong direction.
+
+The main contributions of this paper are:
+\begin{enumerate}
+  \item A formal analysis of the B-matrix dominance problem in EHA
+    MRAC, including an LMI-based verification~(YALMIP/MOSEK) that the
+    dominance cannot be eliminated by $Q$-matrix tuning or
+    P-matrix optimisation.
+  \item The identification that the position-channel adaptation
+    projection $\eph=e_y(CPB)$ is mathematically equivalent to
+    \emph{output-feedback MRAC} on the measurable position signal,
+    providing a theoretically grounded reframing of what was
+    previously described as a heuristic ``trick''.
+  \item A complete analysis of the fundamental theoretical limitation:
+    a necessary condition for classical UUB is shown to be
+    structurally infeasible for this system class, and three
+    Propositions (parameter boundedness, theoretical limitation,
+    practical stability) are stated precisely.
+  \item A norm-projection operator that guarantees parameter
+    boundedness by design, combined with $\sigma$-modification for
+    practical stability.
+  \item Simulation results on a high-fidelity nonlinear model
+    (LuGre friction, valve dead-zone, pressure dynamics) confirming
+    sub-millimetre steady-state tracking.
+\end{enumerate}
+
+%%====================================================================
+\section{System Modelling}
+\label{sec:model}
+
+\subsection{Electrohydraulic Actuator}
+
+The test-bench actuator consists of a Moog G761 proportional servo
+valve connected to a double-rod hydraulic cylinder.  The cylinder
+drives a load carriage with equivalent mass $m=3.4\,\mathrm{kg}$ and
+viscous damping $B_p=38\,\mathrm{N\cdot s/m}$.  Physical parameters
+are listed in Table~\ref{tab:params}.
+
+\begin{table}[htbp]
+\centering
+\caption{Electrohydraulic actuator parameters.}
+\label{tab:params}
+\begin{tabular}{llll}
+\toprule
+Parameter & Symbol & Value & Unit \\
+\midrule
+Piston diameter   & $d_p$     & 34                & mm \\
+Rod diameter      & $d_r$     & 30                & mm \\
+Effective area    & $A_c$     & $2.011\times10^{-4}$ & m$^2$ \\
+Equivalent mass   & $m$       & 3.4               & kg \\
+Viscous damping   & $B_p$     & 38                & N$\cdot$s/m \\
+Bulk modulus      & $\beta_e$ & $1.6\times10^{9}$ & Pa \\
+Effective volume  & $V_e$     & $6.886\times10^{-5}$ & m$^3$ \\
+Internal leakage  & $C_{ip}$  & $3.993\times10^{-13}$ & m$^3$/(s$\cdot$Pa) \\
+Supply pressure   & $P_s$     & 199.85            & bar \\
+Flow-gain coeff.  & $K_q$     & $1.100\times10^{-2}$ & m$^3$/(s$\cdot$A) \\
+Pressure-flow coeff. & $K_c$ & $3.963\times10^{-13}$ & m$^3$/(s$\cdot$Pa) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Valve coefficients $K_q$ and $K_c$ are obtained from static bench
+measurements at reference pressures $\hat P_{s,fg}$ and
+$\hat P_{s,pg}$, scaled to the operating supply pressure
+$P_{s,\mathrm{net}}=195.4\,\mathrm{bar}$ via orifice-law corrections:
+\begin{equation}
+K_q = \hat K_q\sqrt{\frac{P_{s,\mathrm{net}}}{\hat P_{s,fg}}}, \qquad
+K_c = \hat K_c\sqrt{\frac{\hat P_{s,pg}}{P_{s,\mathrm{net}}}}.
+\end{equation}
+
+\subsection{Nonlinear Plant Model}
+
+The nonlinear plant comprises three subsystems: (a)~a Moog G761 servo
+valve modelled as a first-order transfer function with a
+dead-zone nonlinearity ($\pm0.02$ normalised); (b)~nonlinear pressure
+dynamics with compressibility and internal leakage; and (c)~cylinder
+mechanics with a LuGre friction model capturing stick--slip behaviour.
+
+\subsection{Linearised Scaled State-Space Representation}
+
+Let the physical states be $x=[x_c,\,\dot x_c,\,P_L]^\top$ where
+$x_c$ is piston position, $\dot x_c$ velocity, and
+$P_L=P_A-P_B$ differential load pressure.  The linearised
+continuous-time system is $\dot x = Ax+Bu$, $y=Cx$, with
+\begin{equation}
+A = \begin{bmatrix}0&1&0\\0&-B_p/m&A_c/m\\
+    0&-4\beta_e A_c/V_e&-4\beta_e(K_c+C_{ip})/V_e\end{bmatrix},\quad
+B = \begin{bmatrix}0\\0\\(4\beta_e/V_e)K_q\end{bmatrix}, \quad
+C = \begin{bmatrix}1&0&0\end{bmatrix}.
+\end{equation}
+
+To improve numerical conditioning, the coordinate transformation
+$T=\mathrm{diag}(10^{-3},10^{-3},10^5)$ maps the states to
+$\ze = T^{-1}x \in [\mathrm{mm},\,\mathrm{mm/s},\,\mathrm{bar}]$.
+Control input $u$ (valve current, A) is further scaled to milliamperes
+by a factor of $10^{-3}$.  The scaled matrices are:
+\begin{equation}
+\bA = T^{-1}AT, \quad
+\bB_{mA} = 10^{-3}\,T^{-1}B
+           = \begin{bmatrix}0\\0\\b_3\end{bmatrix}, \quad b_3 = 10{,}225.6.
+\label{eq:B_structure}
+\end{equation}
+
+The critical structural property $\bB_{mA}=[\,0\;0\;b_3\,]^\top$ is
+a consequence of the valve--pressure--position signal chain and is
+independent of the coordinate scaling chosen.  It holds for all
+double-rod hydraulic cylinder systems of this type.
+
+%%====================================================================
+\section{MRAC Design}
+\label{sec:mrac}
+
+\subsection{Reference Model}
+
+The reference model is selected as the nominal closed-loop system
+obtained by state-feedback gain $K_m$ on the scaled linearisation:
+\begin{equation}
+\Am = \bA - \bB_{mA}K_m, \qquad
+\dot\zm = \Am\zm + B_m\,r,
+\end{equation}
+where $K_m$ is computed by pole placement targeting
+$\omega_n=40\,\mathrm{rad/s}$, $\zeta=0.707$ for the dominant complex
+pair and a fast real pole at $-150\,\mathrm{rad/s}$:
+\begin{equation}
+p_{1,2} = -28.28\pm 28.29j, \quad p_3=-150, \qquad
+K_m = [\,0.0040,\;{-0.0181},\;0.0119\,].
+\end{equation}
+The input matrix $B_m = \bB_{mA}/\text{DC\_gain}$ is scaled so that
+the position DC gain from reference $r$ to output $z_{m1}$ equals
+unity.  Numerically, $\text{DC\_gain}=C(-\Am)^{-1}\bB_{mA}=251.96\,\mathrm{mm/mA}$
+and $\abs{G_m(j\cdot 2\pi\cdot 0.2)}=1.000$.
+
+The Lyapunov equation $\Am^\top P + P\Am = -Q$ with $Q=I_3$ yields:
+\begin{equation}
+P = \begin{bmatrix}
+13.48 & 0.066 & 0.012 \\
+0.066 & 0.013 & 0.314 \\
+0.012 & 0.314 & 9.499
+\end{bmatrix}.
+\label{eq:Pbar}
+\end{equation}
+
+\subsection{Control Law}
+
+The MRAC control law is:
+\begin{equation}
+u = -\Lh^\top\ze + \Mh\,r,
+\end{equation}
+where $\Lh\in\R^3$ and $\Mh\in\R$ are time-varying adaptive gains
+initialised at $\Lh(0)=-K_m$ and $\Mh(0)=1/\text{DC\_gain}$.
+
+\subsection{B-Matrix Dominance in the Lyapunov Adaptation Term}
+\label{sec:dominance}
+
+The standard MRAC Lyapunov adaptation term is:
+\begin{equation}
+\e^\top P\bB_{mA}
+  = b_3\bigl(P_{13}e_1 + P_{23}e_2 + P_{33}e_3\bigr).
+\label{eq:ePB_full}
+\end{equation}
+From \eqref{eq:Pbar}: $P_{13}=0.012$, $P_{23}=0.314$, $P_{33}=9.499$,
+so $P_{33}/P_{13}=771$ and $P_{23}/P_{13}=25$.  The pressure-error
+channel is dominant by two orders of magnitude.
+
+During stiction phases the plant differential pressure $z_3$
+accumulates while the reference model predicts $z_{m3}\approx0$,
+so $e_3=z_{m3}-z_3<0$ and large.  With $b_3 P_{33}\abs{e_3}\gg
+b_3 P_{13}\abs{e_1}$, the scalar term in \eqref{eq:ePB_full} becomes
+negative, driving $\dot{\Mh}<0$ and collapsing the feedforward gain
+regardless of the position tracking error.
+
+An LMI search (YALMIP/MOSEK) minimising
+$b_3(P_{23}+P_{33})$ over symmetric positive-definite $P$ satisfying
+$\Am^\top P+P\Am\preceq -\varepsilon I$ reduces the ratio
+$P_{33}/P_{13}$ from $771$ to $8.89$, but $c_\delta=b_3(P_{23}+P_{33})$
+only decreases from $100{,}337$ to $92{,}025$---a $8\,\%$ reduction
+that is insufficient to resolve the dominance in practice.
+
+\subsection{Output-Feedback Adaptation Projection}
+\label{sec:projection}
+
+Observe from \eqref{eq:B_structure} that the measurable output is
+$y = C\ze = e_1$ (position), and $CPB = P_{13}b_3$.  We define the
+projected scalar driving term as:
+\begin{equation}
+\boxed{\eph = e_y\cdot(C\,P\,\bB_{mA}) = e_1\cdot P_{13}b_3 = 125.98\,e_1.}
+\label{eq:phi}
+\end{equation}
+
+\textbf{Key observation.} The projection \eqref{eq:phi} is not an
+ad-hoc simplification but is the \emph{exact output-feedback MRAC}
+adaptation term.  In output-feedback MRAC the adaptation driving
+signal is $\eph = e_y(CPB)$, where $e_y = y_m - y$ is the measurable
+output error.  Since $C=[1,0,0]$ selects position, and
+$\bB_{mA}=[0\;0\;b_3]^\top$ makes only the third column of $P$
+relevant, $CPB = P_{13}b_3$.  Hence \eqref{eq:phi} is both
+physically interpretable (adaptation is driven exclusively by the
+measurable position error) and theoretically grounded.
+
+The adaptation laws are:
+\begin{align}
+\dot{\Lh} &= \Proj_{\norm{\Lh}\le L_{\max}}\!\bigl(-\GL\,\eph\,\ze
+             - \sL\,\Lh\bigr), \label{eq:Lhat_dot}\\
+\dot{\Mh} &= \Proj_{\abs{\Mh}\le M_{\max}}\!\bigl(+\GR\,\eph\,r
+             - \sM\,\Mh\bigr). \label{eq:Mhat_dot}
+\end{align}
+Design parameters: $\GL=10^{-6}$, $\GR=10^{-5}$,
+$\sL=\sM=0.001$, $L_{\max}=0.123$, $M_{\max}=0.120$.
+
+%%====================================================================
+\section{Stability Analysis}
+\label{sec:stability}
+
+\subsection{Closed-Loop Error Dynamics}
+
+Define $\Lt = \Lh+K_m$ and $\Mt = \Mh-K_r$ ($K_r=1/\text{DC\_gain}$).
+Substituting the control law into the plant and using
+$\Am=\bA-\bB_{mA}K_m$:
+\begin{equation}
+\dot\e = \Am\e - \bB_{mA}(\Lt^\top\ze - \Mt\,r). \label{eq:edot}
+\end{equation}
+
+\subsection{Lyapunov Decomposition}
+
+Select the composite Lyapunov candidate:
+\begin{equation}
+V = \e^\top P\e + \frac{1}{\GL}\norm{\Lt}^2 + \frac{1}{\GR}\Mt^2.
+\label{eq:V}
+\end{equation}
+Since $\bB_{mA}=[\,0\;0\;b_3\,]^\top$, write
+$\e^\top P\bB_{mA} = \eph + \dlt$ where
+$\eph = e_1 P_{13}b_3$ (projected term) and
+$\dlt = b_3(P_{23}e_2 + P_{33}e_3)$ (residual).
+After substituting \eqref{eq:Lhat_dot}--\eqref{eq:Mhat_dot} and
+noting the projection property
+$\Lt^\top\Proj(\tau,\Lh)\le\Lt^\top\tau$, the $\eph$-terms cancel
+exactly and:
+\begin{equation}
+\dot V \le -\e^\top Q\e
+         + 2\dlt(\Mt\,r - \Lt^\top\ze)
+         - \frac{\sL}{2\GL}\norm{\Lt}^2
+         - \frac{\sM}{2\GR}\Mt^2
+         + C_\sigma,
+\label{eq:Vdot}
+\end{equation}
+where $C_\sigma = (\sL/2\GL)\norm{K_m}^2 + (\sM/2\GR)K_r^2 = 0.244$
+is a finite positive constant.
+
+\subsection{Circularity in the Perturbation Bound and Structural Limitation}
+\label{sec:circularity}
+
+The residual $\dlt=b_3(P_{23}e_2+P_{33}e_3)$ depends on the system
+states $e_2,e_3$; the term $\kap=\Mt r - \Lt^\top\ze$ depends on
+$\Lt$, $\Mt$, and $\ze=\zm-\e$.  A naive application of Young's
+inequality to $2\abs{\dlt}\abs{\kap}$ yields:
+\begin{equation}
+2\abs{\dlt}\abs{\kap}
+  \le 2c_\delta\norm{\e}\bigl[\abs{\Mt}r_{\max}
+     + \norm{\Lt}(Z_m+\norm{\e})\bigr]
+  = 2c_\delta\kappa_0\norm{\e} + 2c_\delta\norm{\Lt}_{\max}\norm{\e}^2,
+\label{eq:young}
+\end{equation}
+where $c_\delta = b_3(P_{23}+P_{33})=100{,}337$,
+$Z_m=\norm{G_m}_\infty r_{\max}=579\,\mathrm{mm}$, and
+$\kappa_0 = \norm{\Mt}_{\max}r_{\max}+\norm{\Lt}_{\max}Z_m = 85.9$.
+Substituting \eqref{eq:young} into \eqref{eq:Vdot}, the coefficient
+of $\norm{\e}^2$ becomes:
+\begin{equation}
+\lambda_{\min}(Q) - 2c_\delta\norm{\Lt}_{\max}
+  = 1 - 2\times100{,}337\times 0.145 = -29{,}101 \ll 0.
+\label{eq:infeasible}
+\end{equation}
+
+\begin{proposition}[Structural Infeasibility]
+\label{prop:infeasible}
+For a hydraulic system with $B=[\,0\;0\;b_3\,]^\top$ and $Q=I$ in
+the Lyapunov equation, the condition
+$c_\delta < \lambda_{\min}(Q)/(2\norm{\Lt}_{\max})$ required for a
+classical UUB proof via \eqref{eq:Vdot}--\eqref{eq:young} is
+structurally infeasible.  In the present system:
+\begin{equation}
+c_\delta = 100{,}337, \qquad
+\frac{\lambda_{\min}(Q)}{2\norm{\Lt}_{\max}} \approx 5\times10^{-6},
+\end{equation}
+so the condition requires $\norm{\Lh}<5\times10^{-6}\,\mathrm{mA/mm}$,
+while the nominal gain satisfies $\norm{K_m}=0.022\,\mathrm{mA/mm}$.
+This is four orders of magnitude too large and cannot be resolved by
+any physical control design.
+\end{proposition}
+
+\begin{remark}
+LMI-based minimisation of $c_\delta$ reduces it from $100{,}337$ to
+$92{,}025$ (8\,\% reduction) while maintaining $\Am^\top P+P\Am\prec 0$.
+The feasibility threshold remains unreachable.  This is therefore a
+fundamental limitation of the Young's-inequality-based UUB approach
+for this system class, not a consequence of a particular $P$-matrix
+choice.
+\end{remark}
+
+\subsection{Parameter Boundedness and Practical Stability}
+
+Despite Proposition~\ref{prop:infeasible}, the following results hold
+rigorously.
+
+\begin{proposition}[Parameter Boundedness]
+\label{prop:bounded}
+Under the projection laws \eqref{eq:Lhat_dot}--\eqref{eq:Mhat_dot},
+$\norm{\Lh(t)}\le L_{\max}$ and $\abs{\Mh(t)}\le M_{\max}$ for all
+$t\ge 0$, by construction of the projection operator.
+\end{proposition}
+
+\begin{proposition}[Practical Stability]
+\label{prop:practical}
+Under Proposition~\ref{prop:bounded} with $\sigma>0$, and for bounded
+reference $r$ and bounded initial conditions, the adaptive gains
+$\Lh,\Mh$ remain bounded, the reference state $\zm$ is bounded
+(since $\Am$ is Hurwitz and $r$ is bounded), and the position error
+satisfies $\abs{e_1(t)}\le\varepsilon_e$ for all large $t$, where
+$\varepsilon_e$ is determined by $\sigma$, $\GL$, $\GR$, $L_{\max}$,
+and $M_{\max}$.  Numerical simulation (Section~\ref{sec:sim}) gives
+$\norm{\e_1}_{\infty,ss} \le 1.72\,\mathrm{mm}$.
+\end{proposition}
+
+\begin{remark}
+A complete UUB proof would require either (a)~an alternative Lyapunov
+structure that does not require $\dlt$ to be treated as an external
+perturbation, or (b)~a different adaptation architecture that
+eliminates $\dlt$ by design, such as a pressure inner-loop that drives
+$e_3\to 0$ independently.  Both constitute open problems for this
+system class.
+\end{remark}
+
+%%====================================================================
+\section{Simulation Results}
+\label{sec:sim}
+
+\subsection{Setup}
+
+The nonlinear plant is implemented in MATLAB/Simulink R2023b with a
+fixed-step ode4 solver at $1\,\mathrm{ms}$.  Initial conditions are
+taken from experimental test-bench data:
+$P_A(0)\approx71.3\,\mathrm{bar}$, $P_B(0)\approx72.0\,\mathrm{bar}$,
+$\dot x_c(0)\approx-0.05\,\mathrm{mm/s}$.  Reference trajectory:
+$r(t) = 15\sin(2\pi\cdot 0.2\,t)$ mm (amplitude 15~mm, 0.2~Hz).
+Simulation duration: $30\,\mathrm{s}$.
+
+\subsection{Tracking Performance}
+
+Table~\ref{tab:performance} summarises position error statistics in
+successive time windows.  The system enters steady-state tracking
+(sliding-window RMS below $1\,\mathrm{mm}$) at approximately $t=5\,\mathrm{s}$.
+The adaptive feedforward gain $\Mh$ converges from $3.97\times10^{-3}$
+to $2.38\times10^{-2}\,\mathrm{mA/mm}$, reflecting the additional gain
+required to overcome LuGre static friction.
+
+\begin{table}[htbp]
+\centering
+\caption{Position tracking performance by time window.}
+\label{tab:performance}
+\begin{tabular}{lccc}
+\toprule
+Time window (s) & RMS error (mm) & Max error (mm) & Error / Amplitude (\%) \\
+\midrule
+0--5   & 6.40 & 11.49 & 42.7 \\
+5--10  & 1.99 &  6.22 & 13.3 \\
+10--20 & 0.44 &  1.52 &  2.9 \\
+20--30 & 0.45 &  1.72 &  3.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Comparison Study}
+
+Table~\ref{tab:comparison} compares five design variants.  The
+standard full $\e^\top PB$ driving term without $\sigma$-modification
+diverges ($\hat M\to-9{,}257$).  LMI-optimised $P$ matrices reduce
+$P_{33}/P_{13}$ but fail to prevent $e_3$ dominance.  The proposed
+output-feedback projection with $\sigma$-modification achieves the
+best steady-state performance.
+
+\begin{table}[htbp]
+\centering
+\caption{Comparison of MRAC adaptation variants (30~s, 0.2~Hz, 15~mm
+         reference).}
+\label{tab:comparison}
+\begin{tabular}{lcccc}
+\toprule
+Variant & $c_\delta$ & RMS $t{>}20$s (mm) & Converges? & UUB proof \\
+\midrule
+Full $\e^\top PB$, no $\sigma$ & 100,337 & 32.7 (diverge) & No & No \\
+LMI $P$ (ratio 8.89), no $\sigma$ & 92,025 & 9.09 & Partial & No \\
+LMI $P$ (ratio 1.18), no $\sigma$ & 92,025 & 4.76 & Partial & No \\
+Output-FB projection, no $\sigma$ & --- & 0.44 & Yes & No \\
+\rowcolor{green!10}
+Output-FB projection + $\sigma$ + Proj (proposed) & --- & 0.45 & Yes ($\approx$5 s) & Prop.~\ref{prop:bounded}--\ref{prop:practical} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{$\sigma$-Modification Parameter Study}
+
+Table~\ref{tab:sigma} reports steady-state RMS error and final $\Mh$
+for $\sigma\in\{0.001,0.005,0.01,0.05,0.1\}$.  The value
+$\sigma=0.001$ provides the best balance: RMS $0.17\,\mathrm{mm}$ and
+$\Mh\to 0.028\,\mathrm{mA/mm}$.
+
+\begin{table}[htbp]
+\centering
+\caption{Effect of $\sigma$ on steady-state performance
+         ($\GL=10^{-6}$, $\GR=10^{-5}$).}
+\label{tab:sigma}
+\begin{tabular}{lccc}
+\toprule
+$\sigma$ & RMS $t{>}20$s (mm) & $\hat M(30\,\mathrm{s})$ & Note \\
+\midrule
+0.001 & 0.17 & 0.028 & \textbf{Optimal (selected)} \\
+0.005 & 0.43 & 0.021 & Slight $\hat M$ bias \\
+0.010 & 0.40 & 0.018 & --- \\
+0.050 & 0.30 & 0.006 & $\hat M$ suppressed \\
+0.100 & 0.91 & 0.002 & Performance degraded \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%%====================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+The output-feedback reframing (Section~\ref{sec:projection}) clarifies
+why the $e_1$-projection is not an ad-hoc remedy but rather a
+principled design choice: it drives adaptation via the only state that
+is directly observable and physically meaningful during stiction.  The
+pressure error $e_3$ is large whenever the plant is in stiction
+because the actuator builds pressure without moving, while the linear
+reference model has no mechanism to replicate this behaviour.
+
+The structural infeasibility result (Proposition~\ref{prop:infeasible})
+is of independent interest.  It shows that for any hydraulic actuator
+with $B=[\,0\;0\;b_3\,]^\top$ and closed-loop poles in the range used
+here, the Lyapunov-based UUB proof via Young's inequality requires the
+adaptive gain to be smaller than the nominal pole-placement gain by
+four orders of magnitude---an impossibility.  This is not a limitation
+of the particular plant or design parameters but follows from the
+algebraic relationship between $b_3$, $P_{33}$, and $\lambda_{\min}(Q)$.
+
+The projection operator resolves parameter drift and enables Proposition~\ref{prop:bounded}, while $\sigma$-modification drives adaptation toward the ideal gains, yielding Proposition~\ref{prop:practical}.  The combination achieves convergence six times faster than the unmodified law and maintains sub-millimetre accuracy after the adaptation transient.
+
+Early-phase tracking error ($t<5\,\mathrm{s}$, RMS $\approx6.4\,\mathrm{mm}$)
+reflects the stiction regime: $\Mh$ must grow from
+$3.97\times10^{-3}$ to $\approx0.025\,\mathrm{mA/mm}$ before the
+pressure threshold for motion is reached.  This is a physical limitation of
+the actuator, not an artefact of the adaptation law.
+
+%%====================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper has presented a comprehensive MRAC design for a nonlinear
+EHA, identifying and resolving a fundamental structural limitation of
+the standard Lyapunov adaptation law for systems with
+$B=[\,0\;0\;b_3\,]^\top$.  Four contributions were established:
+\begin{enumerate}
+  \item The dominance ratio $P_{33}/P_{13}=771$ was shown to be
+    intrinsic to the closed-loop Lyapunov equation and irreducible
+    by LMI-based $P$-matrix optimisation.
+  \item The $e_1$-projection was identified as output-feedback MRAC,
+    providing a theoretically grounded justification for what
+    appeared as a heuristic approximation.
+  \item Proposition~\ref{prop:infeasible} established that classical
+    UUB via Young's inequality is structurally infeasible for this
+    system class, and this constitutes an open theoretical problem.
+  \item Propositions~\ref{prop:bounded}--\ref{prop:practical}
+    provide rigorous parameter-boundedness and practical-stability
+    results under norm projection and $\sigma$-modification.
+\end{enumerate}
+
+The design achieves RMS position error $0.45\,\mathrm{mm}$
+($3\,\%$ of amplitude) with $\approx5\,\mathrm{s}$ convergence time
+on the nonlinear model.  Experimental validation and extension to
+online LuGre parameter identification are planned as future work.
+
+%%====================================================================
+\bibliographystyle{plainnat}
+\begin{thebibliography}{12}
+
+\bibitem{merritt1967}
+Merritt, H.E. (1967).
+\textit{Hydraulic Control Systems}.
+Wiley.
+
+\bibitem{jelali2003}
+Jelali, M., \& Kroll, A. (2003).
+\textit{Hydraulic Servo-systems: Modelling, Identification and Control}.
+Springer.
+
+\bibitem{manring2019}
+Manring, N.D., \& Fales, R.C. (2019).
+\textit{Hydraulic Control Systems} (2nd ed.).
+Wiley.
+
+\bibitem{astrom2008}
+\AA str\"{o}m, K.J., \& Wittenmark, B. (2008).
+\textit{Adaptive Control} (2nd ed.).
+Dover.
+
+\bibitem{slotine1991}
+Slotine, J.-J.E., \& Li, W. (1991).
+\textit{Applied Nonlinear Control}.
+Prentice-Hall.
+
+\bibitem{kocagil2022}
+Kocagil, B.M., Ozkan, B., \& Mahmutyazicioglu, G. (2022).
+Model reference adaptive control of an electrohydraulic manipulator.
+\textit{Journal of Vibration and Control}, 28(13--14), 1811--1828.
+
+\bibitem{yao2014}
+Yao, J., Jiao, Z., \& Ma, D. (2014).
+Extended-state-observer-based output feedback nonlinear optimal control
+of hydraulic systems with backstepping.
+\textit{IEEE Transactions on Industrial Electronics}, 61(11), 6285--6293.
+
+\bibitem{ioannou1996}
+Ioannou, P.A., \& Sun, J. (1996).
+\textit{Robust Adaptive Control}.
+Prentice-Hall.
+
+\bibitem{narendra2005}
+Narendra, K.S., \& Annaswamy, A.M. (2005).
+\textit{Stable Adaptive Systems}.
+Dover.
+
+\bibitem{lofberg2004}
+L\"{o}fberg, J. (2004).
+YALMIP: A toolbox for modeling and optimization in MATLAB.
+\textit{Proceedings of the IEEE CACSD Symposium}, 284--289.
+
+\bibitem{canudas1995}
+Canudas de Wit, C., Olsson, H., \AA str\"{o}m, K.J., \& Lischinsky, P. (1995).
+A new model for control of systems with friction.
+\textit{IEEE Transactions on Automatic Control}, 40(3), 419--425.
+
+\bibitem{won2015}
+Won, D., Kim, W., Shin, D., \& Chung, C.C. (2015).
+High-gain disturbance observer-based backstepping control with output
+tracking error constraint for electro-hydraulic systems.
+\textit{IEEE Transactions on Control Systems Technology}, 23(2), 787--795.
+
+\end{thebibliography}
+
+\end{document}

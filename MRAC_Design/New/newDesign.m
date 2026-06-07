@@ -1,7 +1,11 @@
 %%
-clear all 
+clear all
 clc
-close all 
+close all
+addpath('C:\_PhD\4_Tez\3_Tests\0_Modelling\phdMain');
+run('C:\_PhD\4_Tez\3_Tests\0_Modelling\phdMain\phdShell.m');
+%%
+simTime = 30; % s
 %% PARAMETRELER
 d_p     = 34e-3;
 d_r     = 30e-3;
@@ -35,17 +39,6 @@ Kq          = Kq_ref * sqrt(Ps_net  / Ps_fg_net);   % [m³/(s·A)]
 Kc          = Kc_ref * sqrt(Ps_pg_net / Ps_net);    % [m³/(s·Pa)]
 
 Kv          = 1.0;                         % Valf kazancı (Kq'ya absorb edildi)
-%% Referans modelin tanımlanması 
-a1 = 4.058E9; 
-a2 = 1.336E8; 
-a3 = 195.3835; 
-
-Am = [0,        1,      0; 
-      0,        -Bp/m,  Ac/m; 
-      -a1,      -a2,    -a3]; 
-Bm = [0;0;-Am(3,1)];
-Cm = eye(3);
-Dm = zeros(3,1); 
 %% Sistemin Lineer Dinamik Modelinin Oluşturulması 
 
 A = [0,     1,                      0; 
@@ -55,29 +48,58 @@ A = [0,     1,                      0;
 B = [0; 0; (4*beta_e/Ve)*(Kq*Kv)];
 
 %% Ölçeklendirilmiş uzaya geçiş 
-
-T = diag([1e-3,1e-3,1e5]);
+T = diag([1e-3,1e-3,1e5]); %mm,mm,bar
 T_inv = inv(T);
-
-%% Ölçeklendirilmiş uzayda referans model 
-
-Am_bar = T_inv * Am * T;
-Bm_bar = T_inv * Bm;
-Bm_bar_mm = Bm_bar .* 1e-3; 
 
 %% Ölçeklendirilmiş lineer dinamik sistem modeli 
 A_bar = T_inv * A * T; 
 B_bar = T_inv * B; 
 B_bar_mA = B_bar .* 1e-3; 
 
-%% Lyapunov denkleminin yazılıp ölçekli uzayda P_bar'ın bulunması 
-Q_bar = diag([1,1,1]);%eye(3); 
-P_bar = lyap(Am_bar', Q_bar); 
+%% Ölçeklendirilmiş uzayda referans model
+run('placePoles.m');
 
-%% 
-Gamma_L = 1;
-Gamma_R = 10;
-sim("LinModelMracScaled.slx")
+%% Lyapunov denkleminin yazılıp ölçekli uzayda P_bar'ın bulunması
 
-% Buraya GEMINI EKLEYECEK
-% newTest
+Q_bar = eye(3);
+P_bar = lyap(Am_bar', Q_bar);
+
+%% Adaptif Kazanç Başlangıç Koşulları
+% u = -L_hat'*z + M_hat*r  (Controller/Gain = -1)
+% L_hat_IC = -Km: nominal geri besleme kazancını sağlar (u_0 = Km*z)
+% M_hat_IC = 1/DC_gain: nominal feedforward (referans modelin DC kazancı = 1)
+L_hat_IC = -Km;                          % [1x3] -Km (u=L_hat'*z+M*r eşleşme koşulu)
+L_hat_IC(1) = abs(L_hat_IC(1));
+
+DC_gain  = C_pos * inv(-Am_bar) * B_bar_mA;  % referans modelin DC kazancı [mm/mA]
+M_hat_IC = 1 / DC_gain;                  % nominal feedforward kazancı [mA/mm]
+
+%% Adaptasyon Kazançları ve scalarTerm Seçimi
+
+Gamma_L = 1e-6;   % AdaptMech/Constant  -> L_hat_dot = -Gamma_L * scalarTerm * z
+Gamma_R = 1e-5;   % AdaptMech/Constant3 -> M_hat_dot = +Gamma_R * scalarTerm * r
+
+%% sigma-Modification (UUB Stabilite Garantisi)
+sigma_L = 0.001;  % [Gain_sigL] L_hat sigma-mod kazancı
+sigma_M = 0.001;  % [Gain_sigM] M_hat sigma-mod kazancı
+
+%% Plant Başlangıç Koşulları (timeseries IC sorununu önler)
+xc_dot_IC = v_mPs.Data(1);    % Başlangıç hızı [m/s]
+xc_IC     = xc_m.Data(1);     % Başlangıç konumu [m]
+PA_IC     = PA_Pa.Data(1);    % Başlangıç A-odası basıncı [Pa]
+PB_IC     = PB_Pa.Data(1);    % Başlangıç B-odası basıncı [Pa]
+
+%% Referans Model Başlangıç Koşulları
+% zm, plant ile aynı noktadan başlamalı; aksi hâlde büyük başlangıç
+% hatası adaptasyonu kontrolsüz saptırır.
+% T_inv = diag([1000, 1000, 1e-5])  =>  z = T_inv * x
+zm_IC = [xc_IC * 1000*0;          % konum:  m  -> mm
+         xc_dot_IC * 1000;      % hız:   m/s -> mm/s
+         (PA_IC - PB_IC)*1e-5]; % deltaP: Pa -> ölçekli
+
+%% Simülasyon
+
+close all;
+load_system('NonLinModelMracScaled');
+set_param('NonLinModelMracScaled/Integrator', 'InitialCondition', 'zm_IC');
+open_system('NonLinModelMracScaled');
