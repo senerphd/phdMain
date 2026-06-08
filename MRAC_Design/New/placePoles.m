@@ -1,5 +1,5 @@
 %% 1. İstenen Kapalı-Çevrim Kutupları
-wn = 96;            % Doğal frekans (rad/s)
+wn = 40;            % Doğal frekans (rad/s)
 zeta = 1.2;         % Sönümleme oranı (Aşırı sönümlü)
 
 % Sönümleme oranına göre kutup hesabı (Sayısal olarak daha güvenli)

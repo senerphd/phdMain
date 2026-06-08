@@ -61,31 +61,25 @@ run('placePoles.m');
 
 %% Lyapunov denkleminin yazılıp ölçekli uzayda P_bar'ın bulunması
 
-Q_bar = eye(3);
+% Q_bar = eye(3);
+% Konuma yüksek(1), hıza düşük(0.01), basınca ise sıfıra yakın(1e-12) ağırlık veriyoruz:
+Q_bar = diag([1, 0.01, 1e-12]); 
+
 P_bar = lyap(Am_bar', Q_bar);
 
 %% Adaptif Kazanç Başlangıç Koşulları
 % u = -L_hat'*z + M_hat*r  (Controller/Gain = -1)
 % L_hat_IC = -Km: nominal geri besleme kazancını sağlar (u_0 = Km*z)
 % M_hat_IC = 1/DC_gain: nominal feedforward (referans modelin DC kazancı = 1)
-L_hat_IC = -Km;                          % [1x3] -Km (u=L_hat'*z+M*r eşleşme koşulu)
-L_hat_IC(1) = abs(L_hat_IC(1));
+L_hat_IC = Km;                          % [1x3] -Km (u=L_hat'*z+M*r eşleşme koşulu)
+% L_hat_IC(1) = abs(L_hat_IC(1));
 
 DC_gain  = C_pos * inv(-Am_bar) * B_bar_mA;  % referans modelin DC kazancı [mm/mA]
 M_hat_IC = 1 / DC_gain;                  % nominal feedforward kazancı [mA/mm]
 
-%% Adaptasyon Kazançları ve scalarTerm Seçimi
-
-Gamma_L = 1e-6;   % AdaptMech/Constant  -> L_hat_dot = -Gamma_L * scalarTerm * z
-Gamma_R = 1e-5;   % AdaptMech/Constant3 -> M_hat_dot = +Gamma_R * scalarTerm * r
-
-%% sigma-Modification (UUB Stabilite Garantisi)
-sigma_L = 0.001;  % [Gain_sigL] L_hat sigma-mod kazancı
-sigma_M = 0.001;  % [Gain_sigM] M_hat sigma-mod kazancı
-
 %% Plant Başlangıç Koşulları (timeseries IC sorununu önler)
-xc_dot_IC = v_mPs.Data(1);    % Başlangıç hızı [m/s]
-xc_IC     = xc_m.Data(1);     % Başlangıç konumu [m]
+xc_dot_IC = 0;    % Başlangıç hızı [m/s]
+xc_IC     = -45e-3;     % Başlangıç konumu [m]
 PA_IC     = PA_Pa.Data(1);    % Başlangıç A-odası basıncı [Pa]
 PB_IC     = PB_Pa.Data(1);    % Başlangıç B-odası basıncı [Pa]
 
@@ -94,8 +88,8 @@ PB_IC     = PB_Pa.Data(1);    % Başlangıç B-odası basıncı [Pa]
 % hatası adaptasyonu kontrolsüz saptırır.
 % T_inv = diag([1000, 1000, 1e-5])  =>  z = T_inv * x
 zm_IC = [xc_IC * 1000*0;          % konum:  m  -> mm
-         xc_dot_IC * 1000;      % hız:   m/s -> mm/s
-         (PA_IC - PB_IC)*1e-5]; % deltaP: Pa -> ölçekli
+         xc_dot_IC * 1000*0;      % hız:   m/s -> mm/s
+         (PA_IC - PB_IC)*1e-5*0]; % deltaP: Pa -> ölçekli
 
 %% Simülasyon
 
