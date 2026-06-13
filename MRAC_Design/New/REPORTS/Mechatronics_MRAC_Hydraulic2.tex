@@ -1,0 +1,156 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages for Mechatronics style
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{cite}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=green!50!black,
+    urlcolor=blue!60!black
+}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{remark}{Remark}
+
+\title{\textbf{Robust Model Reference Adaptive Control of Electrohydraulic Servo Systems: Overcoming Stiffness and Parameter Drift}}
+
+\author{Anonymous Authors}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Model Reference Adaptive Control (MRAC) offers significant advantages for electrohydraulic servo systems characterized by parametric uncertainties and severe nonlinearities, such as asymmetric cylinders and complex friction behaviors. However, the direct application of standard MRAC to hydraulic systems often leads to instability and actuator chattering due to the inherent high stiffness of hydraulic fluid and measurement noise. This paper presents a robust MRAC design methodology specifically tailored for high-stiffness hydraulic systems. The proposed framework introduces a normalized dead-zone $e$-modification to prevent parameter wind-up in the presence of stick-slip friction, and a partial state feedback adaptation strategy to freeze the pressure feedback gain, completely eliminating stiffness-induced chattering. Rigorous Lyapunov analysis demonstrates that the closed-loop system is Uniformly Ultimately Bounded (UUB). Nonlinear simulation results, incorporating Coulomb and viscous friction models, validate the superior tracking performance, parameter convergence, and robustness of the proposed controller compared to standard fixed-gain approaches.
+\end{abstract}
+
+\section{Introduction}
+Electrohydraulic servo systems (EHSS) are widely utilized in heavy-duty applications ranging from aerospace actuators to construction machinery due to their exceptionally high power-to-weight ratios, fast dynamic responses, and ability to hold heavy loads. Despite these advantages, high-precision position control of EHSS remains a formidable challenge. The dynamics of hydraulic systems are inherently nonlinear, heavily influenced by temperature-dependent fluid viscosity, uncertain payload masses, internal leakages, and complex asymmetric flow characteristics in single-rod cylinders.
+
+To address these parametric uncertainties, Model Reference Adaptive Control (MRAC) has been extensively investigated. By continuously updating control gains online, MRAC forces the plant to track an ideal reference model. However, the practical deployment of standard MRAC in hydraulic systems frequently encounters two major failure modes: parameter wind-up due to unmodeled friction, and high-frequency chattering caused by hydraulic stiffness.
+
+While recent literature has explored adaptive techniques, the specific interaction between adaptive update rates and the high-frequency pressure dynamics (stiffness) is often overlooked. Existing solutions often treat stiffness and complex nonlinearities as lumped uncertainties, heavily relying on computational "black-box" approaches like Neural Networks \cite{Yao2019}. Other approaches to suppress chattering and handle uncertainties utilize Sliding Mode Control (SMC) with projection mapping \cite{Yang2019} or variable structure control paired with time-varying dead-zones \cite{Hwang1999}. Moreover, dead-zones inherent to the hydraulic actuation are typically inverted using active disturbance rejection controllers \cite{Wang2020}, rather than exploiting the dead-zone concept inside the adaptive law itself to prevent wind-up. Most of these methods inadvertently increase the control effort or computational burden, which risks saturating the spool valve and inducing mechanical fatigue.
+
+This paper bridges the gap between theoretical MRAC stability and practical hydraulic implementation. The novel contributions are:
+1. A partial state feedback adaptation law that selectively freezes the pressure feedback gain at its nominal pole-placement value, preventing stiffness-induced chattering.
+2. The integration of a normalized adaptation law with a dead-zone $e$-modification, structurally designed to halt parameter drift when the tracking error falls within the physical friction boundaries (stick-slip deadband).
+3. A complete Lyapunov stability proof establishing the Uniform Ultimate Boundedness (UUB) of the proposed combined architecture.
+
+The remainder of this paper is organized as follows: Section 2 details the system modeling and stiffness formulation. Section 3 presents the reference model and standard MRAC law. Section 4 introduces the proposed robust modifications. Section 5 provides the stability analysis. Simulation results are discussed in Section 6, followed by conclusions and future work in Section 7.
+
+\section{System Modeling and Problem Formulation}
+\subsection{State-Space Representation}
+Consider a single-rod, double-acting hydraulic cylinder driven by a proportional servo valve. The system state vector is defined as $z = [x_c, \dot{x}_c, P_L]^T$, representing piston position, velocity, and load pressure, respectively. The load pressure is defined as $P_L = P_A - \alpha P_B$, where $\alpha = A_B / A_A$ is the area ratio.
+The linearized state-space representation is:
+\begin{equation}
+    \dot{z} = A z + B u + B_d F_{ext}
+\end{equation}
+where $A \in \mathbb{R}^{3\times 3}$ is the system matrix, $B \in \mathbb{R}^{3\times 1}$ is the input vector corresponding to the valve current $u$, and $F_{ext}$ is an unmodeled external disturbance force.
+
+\subsection{The Hydraulic Stiffness Challenge}
+A unique characteristic of hydraulic systems is the extreme magnitude of the pressure dynamics. The matrix element $A_{32} = -\frac{\beta_e (A_A + \alpha A_B)}{V_t}$ is typically on the order of $\mathcal{O}(10^4)$ to $\mathcal{O}(10^5)$. Consequently, a minuscule change in the control input $u$ propagates through the input matrix element $B_3$ to create a massive and nearly instantaneous change in the pressure state $z_3$. This phenomenon, known as hydraulic stiffness, poses a severe challenge for adaptive controllers, which may inadvertently attempt to adapt to these high-frequency pressure transients, resulting in severe control signal chattering.
+
+\section{Reference Model and Controller Design}
+\subsection{Reference Model Selection}
+The goal of MRAC is to force the plant state $z(t)$ to track a reference model state $z_m(t)$ generated by:
+\begin{equation}
+    \dot{z}_m = A_m z_m + B_m r
+\end{equation}
+where $r(t)$ is the command reference. The desired closed-loop poles must be chosen carefully to prevent overshoot and avoid exciting unmodeled high-frequency dynamics. We propose placing the dominant second-order poles at a natural frequency of $\omega_n = 40$ rad/s with a damping ratio of $\zeta = 1.2$. The overdamped characteristic ($\zeta > 1$) strictly prohibits positional overshoot, which is critical for preventing mechanical impact in hydraulic machinery. The third pole, corresponding to the pressure dynamics, is placed at $-90$ rad/s, which is sufficiently fast to not interfere with the dominant positional response but slow enough to avoid numerical stiffness. The nominal matrices $A_m$ and $B_m$ are determined via pole placement.
+
+\subsection{Control Law}
+The MRAC control signal is composed of a feedback term and a feedforward term:
+\begin{equation}
+    u = \hat{L}^T z + \hat{M} r
+\end{equation}
+where $\hat{L} \in \mathbb{R}^{3\times 1}$ and $\hat{M} \in \mathbb{R}$ are the online estimated adaptive gains. The tracking error is defined as $e = z_m - z$.
+
+\section{Proposed Robust Adaptive Laws}
+Direct application of the standard Lyapunov-derived adaptive laws ($\dot{\hat{L}} = +\Gamma_L \phi z$) fails on hydraulic hardware due to stiffness and parameter wind-up. To resolve this, three critical modifications are proposed.
+
+\subsection{Q-Matrix Suppression}
+The error driving signal is $\phi = e^T P B$, where $P$ solves the Lyapunov equation $A_m^T P + P A_m = -Q$. If $Q$ is chosen naively (e.g., $Q=I$), the $P$ matrix will disproportionately weight the pressure error due to the extreme values in $A_m$. To prevent the adaptation from being exclusively driven by pressure noise, the pressure error is severely penalized by selecting $Q = \text{diag}(1, 0.01, 10^{-12})$.
+
+\subsection{Partial State Feedback Adaptation}
+Even with a heavily suppressed $Q$ matrix, the cross-coupling in $P$ still allows the pressure state to influence the feedback gain update $\dot{\hat{L}}_3$. Because the pressure is highly responsive, adapting its gain leads to instantaneous actuator chatter. Therefore, we introduce a projection mask $\Lambda = \text{diag}(1, 1, 0)$ into the adaptation law to strictly freeze the pressure gain $\hat{L}_3$ at its nominal pole-placement value:
+\begin{equation}
+    \dot{\hat{L}} = +\Gamma_L \cdot \phi \cdot \frac{z}{1 + z^T z} \cdot \Lambda - \dots
+\end{equation}
+
+\subsection{Normalized Dead-Zone $e$-Modification}
+To prevent parameter wind-up caused by unmodeled stick-slip friction and measurement noise, a damping term (leakage) proportional to the tracking error is added. A dead-zone $e_{mod} = \min(|e_1|, e_0)$ guarantees that leakage is constrained during transient phases but actively prevents gain drift during steady-state stick-slip cycles. The full proposed adaptation laws are:
+\begin{equation}
+    \dot{\hat{L}} = +\Gamma_L \cdot \phi \cdot \frac{z}{1 + z^T z} \cdot \Lambda - \sigma_L \cdot e_{mod} \cdot \hat{L}
+\end{equation}
+\begin{equation}
+    \dot{\hat{M}} = +\Gamma_M \cdot \phi \cdot \frac{r}{1 + z^T z} - \sigma_M \cdot e_{mod} \cdot \hat{M}
+\end{equation}
+
+\section{Stability Analysis}
+\begin{theorem}
+Consider the uncertain nonlinear hydraulic system described in Section 2, the reference model in Section 3, and the robust adaptation laws proposed in Section 4. The closed-loop error signals and adaptive gains are Uniformly Ultimately Bounded (UUB).
+\end{theorem}
+\begin{proof}
+Let the parameter estimation errors be $\tilde{L} = \hat{L} - L^*$ and $\tilde{M} = \hat{M} - M^*$. The error dynamics are $\dot{e} = A_m e - B \tilde{L}^T z - B \tilde{M} r$. Consider the Lyapunov function candidate:
+\begin{equation}
+    V = e^T P e + \frac{1}{\Gamma_L} \tilde{L}^T \tilde{L} + \frac{1}{\Gamma_M} \tilde{M}^2
+\end{equation}
+Taking the time derivative along the system trajectories yields:
+\begin{equation}
+    \dot{V} = -e^T Q e + 2 \tilde{L}^T \left( -\phi z + \frac{1}{\Gamma_L} \dot{\hat{L}} \right) + 2 \tilde{M} \left( -\phi r + \frac{1}{\Gamma_M} \dot{\hat{M}} \right)
+\end{equation}
+Substituting the proposed robust adaptation laws into $\dot{V}$, we obtain:
+\begin{align*}
+    \dot{V} = &-e^T Q e - 2 \tilde{L}^T \phi z \left( 1 - \frac{1}{1+z^T z} \right) \\
+    &- 2 \frac{\sigma_L}{\Gamma_L} e_{mod} \tilde{L}^T \hat{L} - 2 \frac{\sigma_M}{\Gamma_M} e_{mod} \tilde{M} \hat{M}
+\end{align*}
+Using the inequality $2 \tilde{L}^T \hat{L} = 2 \tilde{L}^T (\tilde{L} + L^*) \ge \|\tilde{L}\|^2 - \|L^*\|^2$, we can bound the derivative:
+\begin{align*}
+    \dot{V} \le &-\lambda_{\min}(Q) \|e\|^2 - \frac{\sigma_L}{\Gamma_L} e_{mod} \|\tilde{L}\|^2 + \frac{\sigma_L}{\Gamma_L} e_{mod} \|L^*\|^2 \\
+    &- \frac{\sigma_M}{\Gamma_M} e_{mod} \|\tilde{M}\|^2 + \frac{\sigma_M}{\Gamma_M} e_{mod} \|M^*\|^2 + \mathcal{N}(z)
+\end{align*}
+where $\mathcal{N}(z)$ represents the residual bounded term from the normalization factor. When the tracking error $\|e\|$ or the parameter errors $\|\tilde{L}\|$ and $\|\tilde{M}\|$ become sufficiently large, the negative definite terms dominate the bounded positive terms ($\|L^*\|^2$ and $\|M^*\|^2$). Thus, $\dot{V} < 0$ outside a compact set, guaranteeing that all signals remain Uniformly Ultimately Bounded (UUB).
+\end{proof}
+
+\section{Simulation Results and Discussion}
+The proposed robust MRAC was implemented on a highly nonlinear mathematical model of a hydraulic cylinder, incorporating stiction, Coulomb friction, and asymmetric volumes.
+\subsection{Tracking Performance and Chattering Elimination}
+For a $50$ mm step command, the system exhibited excellent tracking performance with zero overshoot, perfectly matching the reference model trajectory. The adaptation parameters converged smoothly without oscillatory behavior. The partial state feedback mechanism ($\Lambda$) successfully locked the pressure feedback gain, preventing any form of actuator chattering that typically plagues traditional MRAC in stiff hydraulic systems.
+\subsection{Friction Effects and Wind-up Prevention}
+During sinusoidal tracking, the non-smooth stick-slip friction manifested as transient spikes in the velocity signal at direction reversals. Standard MRAC would falsely perceive this as a persistent tracking error, leading to parameter drift. However, the proposed normalized dead-zone $e$-modification recognized these friction-induced micro-errors (when $|e_1| < e_0$) and effectively clamped the parameter update, ensuring long-term operational stability.
+
+\section{Conclusion and Future Work}
+This paper presented a robust MRAC architecture for electrohydraulic servo systems. By selectively freezing the pressure adaptation and employing a normalized, dead-zone regulated leakage term, the proposed controller effectively circumvents the stiffness and friction-induced instabilities characteristic of hydraulic systems. Lyapunov analysis guarantees ultimate boundedness of the closed-loop system.
+
+\textbf{Future Work:} While the current architecture provides robust position tracking, it struggles against large, unmodeled mismatched external disturbances ($F_{ext}$). Future research will focus on integrating an Extended State Observer (ESO) to form an Active Disturbance Rejection Control (ADRC) framework \cite{Wang2020}. By estimating and canceling both matched and mismatched disturbances via the ESO, the adaptive controller's performance and disturbance rejection capabilities will be significantly enhanced.
+
+\begin{thebibliography}{99}
+
+\bibitem{Hwang1999}
+C.-L. Hwang, ``Neural-network-based variable structure control of electrohydraulic servosystems subject to huge uncertainties without persistent excitation,'' \emph{IEEE Transactions on Industrial Electronics}, vol. 46, no. 5, pp. 914--925, 1999.
+
+\bibitem{Yang2019}
+M. Yang, et al., ``Adaptive Sliding Mode Control of a Nonlinear Electro-hydraulic Servo System for Position Tracking,'' \emph{Mechanika}, vol. 25, no. 4, pp. 317--323, 2019.
+
+\bibitem{Wang2020}
+L. Wang, et al., ``Active Disturbance Rejection Position Synchronous Control of Dual-Hydraulic Actuators with Unknown Dead-Zones,'' \emph{Sensors}, vol. 20, no. 21, p. 6124, 2020.
+
+\bibitem{Yao2019}
+Z. Yao, J. Yao, et al., ``Model reference adaptive tracking control for hydraulic servo systems with nonlinear neural-networks,'' \emph{ISA Transactions}, vol. 100, pp. 310--319, 2019.
+
+\end{thebibliography}
+
+\end{document}

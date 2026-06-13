@@ -1,6 +1,7 @@
 %% 1. İstenen Kapalı-Çevrim Kutupları
-wn = 40;            % Doğal frekans (rad/s)
-zeta = 1.2;         % Sönümleme oranı (Aşırı sönümlü)
+wn = 60;           % Doğal frekans (rad/s)
+zeta = 1.05;         % Sönümleme oranı 
+p3 = -90;   
 
 % Sönümleme oranına göre kutup hesabı (Sayısal olarak daha güvenli)
 if zeta < 1
@@ -11,7 +12,7 @@ else
     p2 = -zeta*wn + wn*sqrt(zeta^2-1);
 end
 
-p3 = -150;          
+       
 
 hedef_kutuplar = [p1, p2, p3];
 

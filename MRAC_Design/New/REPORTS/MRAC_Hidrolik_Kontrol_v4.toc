@@ -1,0 +1,45 @@
+\babel@toc {turkish}{}\relax 
+\contentsline {section}{\numberline {1}Giriş: Neden Adaptif Kontrol?}{3}{section.1}%
+\contentsline {section}{\numberline {2}Sistem Modeli}{3}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Fiziksel Yapı}{3}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Durum Uzayı Gösterimi}{3}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Hidrolik Sertlik Problemi}{4}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Referans Model Tasarımı}{4}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Kutup Yerleştirme ile $A_m$ ve $B_m$ Tasarımı}{5}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Başlangıç Koşullarının Önemi}{5}{subsection.3.2}%
+\contentsline {section}{\numberline {4}MRAC Kontrol Kuralı}{5}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Kontrol Sinyalinin Yapısı}{5}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}İzleme Hatası}{6}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Eşleşme Koşulu (Matching Condition)}{6}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Nominal İleri Besleme Kazancının Hesabı}{6}{subsection.4.4}%
+\contentsline {section}{\numberline {5}Lyapunov Tabanlı Adaptasyon Kuralları}{6}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Lyapunov Fonksiyonu}{6}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Lyapunov Denklemi ve $P$ Matrisinin Bulunması}{7}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}$Q$ Matrisi Tasarımı: Hidrolik Sertlik Tuzağı}{7}{subsection.5.3}%
+\contentsline {subsubsection}{\numberline {5.3.1}Problem: Naif $Q$ Seçimi}{7}{subsubsection.5.3.1}%
+\contentsline {subsubsection}{\numberline {5.3.2}Çözüm: Basıncı $Q$ ile Bastırma}{7}{subsubsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.4}Adaptasyon Kuralları}{8}{subsection.5.4}%
+\contentsline {subsubsection}{\numberline {5.4.1}Geri Besleme Kazancı ($\hat {L}$)}{8}{subsubsection.5.4.1}%
+\contentsline {subsubsection}{\numberline {5.4.2}İleri Besleme Kazancı ($\hat {M}$)}{8}{subsubsection.5.4.2}%
+\contentsline {section}{\numberline {6}Tasarım Zorlukları ve Mühendislik Çözümleri}{8}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Problem 1: Basınç Kazancının Adaptasyonu (Chattering)}{8}{subsection.6.1}%
+\contentsline {subsubsection}{\numberline {6.1.1}Fiziksel Açıklama}{8}{subsubsection.6.1.1}%
+\contentsline {subsubsection}{\numberline {6.1.2}Çözüm: Kısmi Durum Geri Beslemeli Adaptasyon}{9}{subsubsection.6.1.2}%
+\contentsline {subsection}{\numberline {6.2}Problem 2: Kazanç Şişmesi ve $e$-Modifikasyonu}{9}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}Çözüm: $e$-Modifikasyonu (Sınırlı Hata Orantılı Sızıntı)}{9}{subsubsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.3}Problem 3: Başlangıç Kazanç İşaretleri}{10}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Adaptasyon Parametrelerinin Ayarlanması}{10}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Adaptasyon Hızı ($\Gamma $)}{10}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Ayar Stratejisi (Tuning Recipe)}{11}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Simülasyon Sonuçları}{11}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Test 1: Stabilizasyon (Regülasyon)}{11}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Test 2: Adım Yanıtı (Step Response)}{11}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Test 3: Sinüzoidal Yörünge Takibi}{11}{subsection.8.3}%
+\contentsline {subsection}{\numberline {8.4}Test 4: Dış Kuvvet Bozucusu}{11}{subsection.8.4}%
+\contentsline {section}{\numberline {9}Kazanç Grafiklerinin Okunması}{12}{section.9}%
+\contentsline {subsection}{\numberline {9.1}$\hat {L}_1$ (Konum Kazancı)}{12}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}$\hat {L}_2$ (Hız Kazancı)}{12}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}$\hat {L}_3$ (Basınç Kazancı)}{12}{subsection.9.3}%
+\contentsline {subsection}{\numberline {9.4}$\hat {M}$ (İleri Besleme Kazancı)}{12}{subsection.9.4}%
+\contentsline {section}{\numberline {10}Parametre Özet Tablosu}{13}{section.10}%
+\contentsline {section}{\numberline {11}Sonuç ve Tartışma}{13}{section.11}%

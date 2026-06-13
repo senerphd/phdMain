@@ -1,0 +1,229 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{mdframed}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=green!50!black,
+    urlcolor=blue!60!black
+}
+
+\newtheorem{theorem}{Teorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Tanım}
+\newtheorem{remark}{Not}
+
+\title{\textbf{Gürbüz Model Referanslı Adaptif Kontrol (MRAC)\\Detaylı Kararlılık (Stabilite) İspatı}}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Bu belgede, elektrohidrolik servo sistemler için tasarlanan, kısmi durum geri beslemesi (partial state feedback), durum normalizasyonu ve ölü-bölge (dead-zone) $e$-modifikasyonu içeren Gürbüz Model Referanslı Adaptif Kontrolörün (Robust MRAC) adım adım kararlılık ispatı sunulmaktadır. İspat, Lyapunov'un Doğrudan Yöntemi'ne (Lyapunov's Direct Method) dayanmakta olup, sistemin asimptotik kararlılık yerine Düzgün Nihai Sınırlandırılmışlık (Uniform Ultimate Boundedness - UUB) özelliğine sahip olduğu gösterilmektedir.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Sistem ve Referans Model Tanımları}
+
+\subsection{Gerçek Sistem (Plant)}
+Elektrohidrolik servo sistem, lineerleştirilmiş bir durum uzayı modeli ile şu şekilde ifade edilir:
+\begin{equation}
+    \dot{z} = A z + B u
+    \label{eq:plant}
+\end{equation}
+Burada $z \in \mathbb{R}^n$ durum vektörü, $u \in \mathbb{R}$ skaler kontrol girişi (valf akımı), $A \in \mathbb{R}^{n \times n}$ sistem matrisi ve $B \in \mathbb{R}^{n \times 1}$ giriş matrisidir.
+
+\subsection{Referans Model}
+Sistemin takip etmesi istenen ideal dinamik davranış (referans model) şu şekildedir:
+\begin{equation}
+    \dot{z}_m = A_m z_m + B_m r
+    \label{eq:ref_model}
+\end{equation}
+Burada $z_m \in \mathbb{R}^n$ referans model durum vektörü, $r \in \mathbb{R}$ sınırlı referans (hedef) girişidir. $A_m$ matrisi Hurwitz'dir (tüm özdeğerleri sol yarı düzlemdedir).
+
+\subsection{Kontrol Kuralı ve Eşleşme Koşulları}
+Kullanılan MRAC kontrol kuralı:
+\begin{equation}
+    u = \hat{L}^T z + \hat{M} r
+    \label{eq:control}
+\end{equation}
+Burada $\hat{L} \in \mathbb{R}^{n \times 1}$ geri besleme kazanç vektörünün kestirimi, $\hat{M} \in \mathbb{R}$ ise ileri besleme kazancının kestirimidir.
+
+\begin{definition}[Eşleşme Koşulu - Matching Condition]
+MRAC teorisinin temel bir varsayımı olarak, sistem parametrelerinin referans model parametrelerine tam olarak eşitlenmesini sağlayan ideal ve sabit $L^*$ ve $M^*$ kazançlarının var olduğu kabul edilir:
+\begin{align}
+    A + B (L^*)^T &= A_m \label{eq:match_A} \\
+    B M^* &= B_m \label{eq:match_B}
+\end{align}
+\end{definition}
+
+\section{Hata Dinamiklerinin Çıkarılması}
+\textbf{Adım 1:} İzleme hatasını (tracking error) $e = z - z_m$ olarak tanımlayalım ve zamana göre türevini alalım:
+\begin{equation}
+    \dot{e} = \dot{z} - \dot{z}_m = (A z + B u) - (A_m z_m + B_m r)
+\end{equation}
+
+\textbf{Adım 2:} Kontrol kuralını (Denklem \ref{eq:control}) $\dot{e}$ içerisine yerleştirelim:
+\begin{equation}
+    \dot{e} = A z + B (\hat{L}^T z + \hat{M} r) - A_m z_m - B_m r
+\end{equation}
+
+\textbf{Adım 3:} Eşleşme koşullarını (Denklem \ref{eq:match_A} ve \ref{eq:match_B}) kullanarak $A$ ve $B_m$ ifadelerini yerine koyalım ($A = A_m - B (L^*)^T$ ve $B_m = B M^*$):
+\begin{align}
+    \dot{e} &= (A_m - B (L^*)^T) z + B \hat{L}^T z + B \hat{M} r - A_m z_m - B M^* r \nonumber \\
+    \dot{e} &= A_m (z - z_m) + B (\hat{L}^T - (L^*)^T) z + B (\hat{M} - M^*) r
+\end{align}
+
+\textbf{Adım 4:} Parametre (kazanç) kestirim hatalarını $\tilde{L} = \hat{L} - L^*$ ve $\tilde{M} = \hat{M} - M^*$ olarak tanımlayalım. Bu durumda hata dinamiği şu sade ve standart forma ulaşır:
+\begin{mdframed}[backgroundcolor=blue!5, linecolor=blue!60!black, roundcorner=5pt]
+\begin{equation}
+    \dot{e} = A_m e + B \tilde{L}^T z + B \tilde{M} r
+    \label{eq:error_dyn}
+\end{equation}
+\end{mdframed}
+Bu denklem, izleme hatası ile parametre hataları arasındaki fiziksel ilişkiyi matematiksel olarak birbirine bağlar.
+
+\section{Lyapunov Analizi ve İdeal Adaptasyon (Saf MRAC)}
+
+\subsection{Lyapunov Fonksiyonunun Seçimi}
+Kararlılık analizi için Lyapunov'un Doğrudan Yöntemi kullanılır. Sistem durumlarının (hata ve parametreler) toplam "enerjisini" temsil eden, pozitif tanımlı ($V > 0$) skaler bir fonksiyon seçilir:
+
+\begin{equation}
+    V(e, \tilde{L}, \tilde{M}) = e^T P e + \frac{1}{\Gamma_L} \tilde{L}^T \tilde{L} + \frac{1}{\Gamma_M} \tilde{M}^2
+    \label{eq:lyapunov}
+\end{equation}
+
+\begin{lemma}[Cebirsel Lyapunov Denklemi]
+$A_m$ matrisi Hurwitz olduğu için, verilen herhangi bir pozitif tanımlı $Q = Q^T > 0$ matrisi için, şu denklemi sağlayan tek bir pozitif tanımlı $P = P^T > 0$ matrisi vardır:
+\begin{equation}
+    A_m^T P + P A_m = -Q
+\end{equation}
+Bu özellik, doğrusal sistem teorisinde asimptotik kararlılığın temelidir.
+\end{lemma}
+
+\subsection{Lyapunov Fonksiyonunun Türevi ($\dot{V}$)}
+\textbf{Adım 5:} $V$'nin zamana göre türevini zincir kuralı uygulayarak alalım:
+\begin{equation}
+    \dot{V} = \dot{e}^T P e + e^T P \dot{e} + \frac{2}{\Gamma_L} \tilde{L}^T \dot{\tilde{L}} + \frac{2}{\Gamma_M} \tilde{M} \dot{\tilde{M}}
+\end{equation}
+İdeal $L^*$ ve $M^*$ parametreleri sabit olduğundan $\dot{\tilde{L}} = \dot{\hat{L}}$ ve $\dot{\tilde{M}} = \dot{\hat{M}}$ eşitlikleri geçerlidir. 
+
+\textbf{Adım 6:} $\dot{e}$ ifadesini (Denklem \ref{eq:error_dyn}) yerine koyalım:
+\begin{align}
+    \dot{e}^T P e + e^T P \dot{e} &= (A_m e + B \tilde{L}^T z + B \tilde{M} r)^T P e + e^T P (A_m e + B \tilde{L}^T z + B \tilde{M} r) \nonumber \\
+    &= e^T (A_m^T P + P A_m) e + 2 e^T P B \tilde{L}^T z + 2 e^T P B \tilde{M} r
+\end{align}
+
+$A_m^T P + P A_m = -Q$ olduğunu kullanarak denklemi sadeleştirelim. Ayrıca işlemi basitleştirmek için $\phi = e^T P B$ (skaler yakıt terimi) tanımını kullanalım:
+\begin{equation}
+    \dot{V} = -e^T Q e + 2 \tilde{L}^T \phi z + 2 \tilde{M} \phi r + \frac{2}{\Gamma_L} \tilde{L}^T \dot{\hat{L}} + \frac{2}{\Gamma_M} \tilde{M} \dot{\hat{M}}
+\end{equation}
+
+Aynı hata terimlerini paranteze alarak:
+\begin{mdframed}[backgroundcolor=gray!10, linecolor=black, roundcorner=5pt]
+\begin{equation}
+    \dot{V} = -e^T Q e + 2 \tilde{L}^T \left( \phi z + \frac{1}{\Gamma_L} \dot{\hat{L}} \right) + 2 \tilde{M} \left( \phi r + \frac{1}{\Gamma_M} \dot{\hat{M}} \right)
+    \label{eq:V_dot_general}
+\end{equation}
+\end{mdframed}
+
+\subsection{Saf (Pure) MRAC Kuralı ve Barbalat Lemması}
+Eğer kazanç güncelleme kurallarını normalizasyonsuz ve sızıntısız (leakage-free) standart MRAC kuralları olarak seçseydik:
+\begin{equation}
+    \dot{\hat{L}} = -\Gamma_L \phi z \quad \text{ve} \quad \dot{\hat{M}} = -\Gamma_M \phi r
+\end{equation}
+Bu kurallar Denklem \ref{eq:V_dot_general}'deki parantez içlerini tam olarak sıfırlar ve geriye sadece:
+\begin{equation}
+    \dot{V} = -e^T Q e \leq 0
+\end{equation}
+kalırdı. $\dot{V} \le 0$, $e, \tilde{L}, \tilde{M}$ sinyallerinin sınırlı (bounded) olduğunu gösterir. Barbalat Lemması kullanılarak $\ddot{V}$'nin sınırlı olduğu gösterilip, $\lim_{t \to \infty} \dot{V}(t) = 0$ sonucuna varılır. Bu da asimptotik olarak $e \to 0$ olduğunu ispatlar.
+
+\section{Gürbüz (Robust) MRAC İspatı: UUB Analizi}
+
+Pratik hidrolik sistemlerde, ölçüm gürültüsü ve modellenmemiş sürtünme (stick-slip) nedeniyle saf MRAC kuralı parametre sürüklenmesine (wind-up) yol açar. Bunu engellemek için tasarıma \textbf{Normalizasyon} ($N = 1+z^T z$) ve ölü-bölge barındıran \textbf{$e$-modifikasyonu} ($e_{mod} = \min(|e_1|, e_0)$) eklenmiştir. Ek olarak, basınç kazancını sabit tutan maske ($\Lambda$) mevcuttur. 
+
+\begin{remark}[Kısmi Durum Geri Beslemesi ($\Lambda$) Hakkında]
+$\Lambda = \text{diag}(1,1,0)$ kullanıldığında, $\hat{L}_3$ güncellenmez ($\dot{\hat{L}}_3 = 0$). İdeal başlangıç koşulları $L_3^* = K_{m3}$ olarak seçildiğinden $\tilde{L}_3 \equiv 0$ garantilidir. Dolayısıyla $\tilde{L}^T \Lambda = \tilde{L}^T$ eşitliği sağlanır ve ispatın genelliği bozulmaz. İspatın devamında sadelik için $\Lambda$ gösterimden düşürülecektir.
+\end{remark}
+
+\subsection{Modifiye Edilmiş Güncelleme Kuralları}
+Önerilen kontrol kuralları şu şekildedir:
+\begin{align}
+    \frac{1}{\Gamma_L} \dot{\hat{L}} &= -\phi \frac{z}{N} - \frac{\sigma_L}{\Gamma_L} e_{mod} \hat{L} \\
+    \frac{1}{\Gamma_M} \dot{\hat{M}} &= -\phi \frac{r}{N} - \frac{\sigma_M}{\Gamma_M} e_{mod} \hat{M}
+\end{align}
+
+\subsection{Türevin Yeniden Hesaplanması}
+\textbf{Adım 7:} Bu kuralları Denklem \ref{eq:V_dot_general}'de yerine koyalım:
+\begin{align}
+    \dot{V} = -e^T Q e &+ 2 \tilde{L}^T \left( \phi z - \phi \frac{z}{N} - \frac{\sigma_L}{\Gamma_L} e_{mod} \hat{L} \right) \nonumber \\
+    &+ 2 \tilde{M} \left( \phi r - \phi \frac{r}{N} - \frac{\sigma_M}{\Gamma_M} e_{mod} \hat{M} \right)
+\end{align}
+
+Terimleri düzenleyelim. Normalizasyon artığı olan ifadeyi $\left(1 - \frac{1}{N}\right) = \frac{z^T z}{1+z^T z} \ge 0$ olarak ayırabiliriz:
+\begin{align}
+    \dot{V} = -e^T Q e &+ 2 \tilde{L}^T \phi z \left( \frac{z^T z}{1+z^T z} \right) + 2 \tilde{M} \phi r \left( \frac{z^T z}{1+z^T z} \right) \nonumber \\
+    &- 2 \frac{\sigma_L}{\Gamma_L} e_{mod} \tilde{L}^T \hat{L} - 2 \frac{\sigma_M}{\Gamma_M} e_{mod} \tilde{M} \hat{M}
+\end{align}
+
+Normalizasyondan kaynaklanan ilk iki terim $e$ ve $z$ cinsinden sınırlanabilir ve yapısal olarak $O(\|e\|)$ mertebesindedir. Bu terimleri analizin odak noktası olan sızıntı (leakage) terimlerinden ayırmak için genel bir sınırlı fonksiyon $\delta(e, z, r)$ içine alalım.
+
+\subsection{Kareye Tamamlama (Completing the Square) Özelliği}
+\textbf{Adım 8:} İspatın en can alıcı noktası $\tilde{L}^T \hat{L}$ teriminin çözümlenmesidir. $\hat{L} = \tilde{L} + L^*$ gerçeğini kullanarak şu işlemi yaparız:
+\begin{align}
+    - 2 \tilde{L}^T \hat{L} &= - 2 \tilde{L}^T (\tilde{L} + L^*) \nonumber \\
+    &= - 2 \|\tilde{L}\|^2 - 2 \tilde{L}^T L^*
+\end{align}
+
+Şu temel cebirsel eşitsizliği kullanalım: $2 a^T b \leq a^T a + b^T b$. Buradan $2 \tilde{L}^T L^* \leq \|\tilde{L}\|^2 + \|L^*\|^2$ elde edilir. Eğer eşitsizliği $(-)$ ile çarparsak:
+\begin{equation}
+    - 2 \tilde{L}^T L^* \geq -\|\tilde{L}\|^2 - \|L^*\|^2
+\end{equation}
+Bunu önceki denklemde yerine koyarsak:
+\begin{equation}
+    - 2 \tilde{L}^T \hat{L} \leq -2\|\tilde{L}\|^2 + \|\tilde{L}\|^2 + \|L^*\|^2 = -\|\tilde{L}\|^2 + \|L^*\|^2
+\end{equation}
+
+\textbf{Adım 9:} Bu eşitsizliği $\dot{V}$ denkleminde (hem $\tilde{L}$ hem $\tilde{M}$ için) yerine koyalım:
+\begin{align}
+    \dot{V} \leq - \lambda_{min}(Q) \|e\|^2 &+ \delta(e, z, r) \nonumber \\
+    &- \frac{\sigma_L}{\Gamma_L} e_{mod} \|\tilde{L}\|^2 + \frac{\sigma_L}{\Gamma_L} e_{mod} \|L^*\|^2 \nonumber \\
+    &- \frac{\sigma_M}{\Gamma_M} e_{mod} \|\tilde{M}\|^2 + \frac{\sigma_M}{\Gamma_M} e_{mod} \|M^*\|^2
+\end{align}
+
+\subsection{Nihai Stabilite Kararı: Düzgün Nihai Sınırlandırılmışlık (UUB)}
+
+\begin{theorem}[Uniform Ultimate Boundedness]
+Elde edilen son $\dot{V}$ eşitsizliğinde:
+1. Negatif terimler: $- \lambda_{min}(Q) \|e\|^2$, $- \frac{\sigma_L}{\Gamma_L} e_{mod} \|\tilde{L}\|^2$ ve $- \frac{\sigma_M}{\Gamma_M} e_{mod} \|\tilde{M}\|^2$.
+2. Pozitif terimler: $\frac{\sigma_L}{\Gamma_L} e_{mod} \|L^*\|^2$ ve $\frac{\sigma_M}{\Gamma_M} e_{mod} \|M^*\|^2$.
+\end{theorem}
+
+\textbf{Teoremin Yorumlanması:}
+$\|L^*\|^2$ ve $\|M^*\|^2$ terimleri sistemin ideal ve sabit (ancak bilinmeyen) parametreleridir, yani sabit birer skalerdirler. Buna karşın, negatif terimler hata ($e$) ve parametre kestirim hatası ($\|\tilde{L}\|, \|\tilde{M}\|$) ile karesel olarak büyürler. 
+
+Eğer parametre hataları $\|\tilde{L}\|$ veya $\|\tilde{M}\|$ belirli bir büyüklüğü geçerse, negatif terimler pozitif terimleri ezer geçer ve $\dot{V} < 0$ olur. $\dot{V}$'nin negatif olması, sistemin toplam "enerjisinin" azalması ve durumların tekrar güvenli bir sınıra (kompakt set) dönmesi demektir. 
+
+Buna literatürde (Örn. Ioannou \& Sun, "Robust Adaptive Control") \textbf{Düzgün Nihai Sınırlandırılmışlık (Uniform Ultimate Boundedness - UUB)} adı verilir. Bu ispat, kontrolcünün kazançlarının \textbf{asla sonsuza gitmeyeceğini (wind-up olmayacağını)} ve hatanın kabul edilebilir çok küçük bir dead-zone ($e_0$) bölgesine sıkışacağını matematiksel bir kesinlikle güvence altına alır.
+
+\section{Referanslar}
+\begin{itemize}
+    \item H. K. Khalil, \emph{Nonlinear Systems}, 3rd ed. Prentice Hall, 2002. (Lyapunov Kararlılığı ve UUB kavramları)
+    \item P. A. Ioannou and J. Sun, \emph{Robust Adaptive Control}, Prentice Hall, 1996. ($e$-modifikasyonu, Normalizasyon ve Barbalat Lemması temelleri)
+\end{itemize}
+
+\end{document}

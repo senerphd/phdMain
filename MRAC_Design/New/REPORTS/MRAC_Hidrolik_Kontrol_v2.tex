@@ -1,0 +1,622 @@
+\documentclass[12pt,a4paper]{article}
+
+% ============================================================
+%  PAKETLER
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+
+\geometry{margin=2.5cm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=green!50!black,
+    urlcolor=blue!60!black
+}
+
+% Özel kutular
+\newtcolorbox{kavram}[1][]{
+    colback=blue!5!white,
+    colframe=blue!60!black,
+    fonttitle=\bfseries,
+    title=#1
+}
+
+\newtcolorbox{dikkat}[1][]{
+    colback=red!5!white,
+    colframe=red!60!black,
+    fonttitle=\bfseries,
+    title=#1
+}
+
+\newtcolorbox{cozum}[1][]{
+    colback=green!5!white,
+    colframe=green!50!black,
+    fonttitle=\bfseries,
+    title=#1
+}
+
+% ============================================================
+%  BAŞLIK
+% ============================================================
+\title{
+    \vspace{-1cm}
+    \textbf{Hidrolik Servo Sistemlerde\\Model Referanslı Adaptif Kontrol (MRAC):\\Tasarım, Problemler ve Çözümler}\\[0.5cm]
+    \large Sıfırdan Uygulamalı Bir Kılavuz
+}
+
+\author{}
+\date{\today}
+
+% ============================================================
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Bu çalışma, elektrohidrolik servo sistemlerde Model Referanslı Adaptif Kontrol (MRAC) tasarımını, sıfırdan başlayarak adım adım anlatmaktadır. Hidrolik sistemlerin doğasından kaynaklanan yüksek sertlik (stiffness), sürtünme nonlineerliği ve dış kuvvet bozucuları gibi problemler ele alınmış; her biri için teorik temelli, uygulanabilir çözümler sunulmuştur. Lyapunov kararlılık analizi, $Q$ matrisi tasarımı, kısmi durum geri beslemeli adaptasyon, $\sigma$-modifikasyonu ve adaptif bias terimi gibi teknikler detaylı olarak açıklanmıştır. Tüm tasarım adımları MATLAB/Simulink ortamında nonlineer simülasyonlarla doğrulanmıştır.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Giriş: Neden Adaptif Kontrol?}
+% ============================================================
+
+Hidrolik servo sistemler; yüksek güç yoğunlukları, hızlı tepki süreleri ve büyük kuvvet kapasiteleri sayesinde inşaat makineleri, uçak kumanda yüzeyleri, robot kolları ve CNC tezgâhları gibi birçok endüstriyel uygulamada yaygın olarak kullanılmaktadır.
+
+Ancak bu sistemlerin kontrolü, birçok zorluğu beraberinde getirir:
+
+\begin{enumerate}
+    \item \textbf{Parametrik Belirsizlik:} Yağın viskozitesi sıcaklıkla değişir, sızdırma katsayıları zamanla artar, yük kütlesi operasyondan operasyona farklılaşır.
+    \item \textbf{Nonlineerlik:} Sürtünme (Coulomb, Stribeck, viskoz), valf ölü bölgesi (dead-zone), akış-basınç ilişkisindeki karekök nonlineerliği.
+    \item \textbf{Yüksek Sertlik (Stiffness):} Sıkışan yağın yarattığı çok yüksek frekanslı basınç dinamikleri, kontrolcünün kararsızlaşmasına neden olabilir.
+\end{enumerate}
+
+Sabit kazançlı kontrolcüler (PID, LQR) belirli bir çalışma noktası için tasarlanır. Parametreler değiştiğinde veya dış bozucular uygulandığında performansları ciddi şekilde bozulur. \textbf{Model Referanslı Adaptif Kontrol (MRAC)}, kontrolcü kazançlarını çevrimiçi (online) olarak güncelleyerek, sistemin her koşulda istenen bir referans modele uymasını sağlayan güçlü bir çözümdür.
+
+\begin{kavram}[MRAC'ın Temel Felsefesi]
+``Sisteme sabit bir reçete vermek yerine, sistemin anlık davranışını gözlemleyip reçeteyi sürekli güncelleyen bir doktor gibi çalışmak.''
+\end{kavram}
+
+% ============================================================
+\section{Sistem Modeli}
+\label{sec:sistem}
+% ============================================================
+
+\subsection{Fiziksel Yapı}
+
+Ele alınan sistem, bir oransal (proportional) servo valf tarafından sürülen tek rodlu (single-rod) bir hidrolik silindirden oluşmaktadır. Sistem üç temel bileşen içerir:
+
+\begin{itemize}
+    \item \textbf{Servo Valf:} Elektrik akım sinyalini ($u$ [mA]) hidrolik debi sinyaline dönüştürür.
+    \item \textbf{Hidrolik Silindir:} Tek rodlu, çift etkili (double-acting) yapıda. İleri yüzeyi ($A_A$) ve geri yüzeyi ($A_B$) farklı alanlara sahiptir.
+    \item \textbf{Yük:} $m$ kütleli bir kütle, sürtünme kuvvetleri ve dış kuvvetlere ($F_{ext}$) maruz kalır.
+\end{itemize}
+
+\subsection{Durum Uzayı Gösterimi}
+
+Sistem, üç durum değişkeni ile tanımlanır:
+\begin{align}
+    z_1 &= x_c \quad \text{(Piston konumu [mm])} \\
+    z_2 &= \dot{x}_c \quad \text{(Piston hızı [mm/s])} \\
+    z_3 &= P_L = P_A - \alpha P_B \quad \text{(Yük basıncı [bar])}
+\end{align}
+burada $\alpha = A_B / A_A$ alan oranıdır.
+
+\begin{kavram}[Durum Uzayı Denklemi]
+Lineerleştirilmiş sistem, standart durum uzayı formunda yazılır:
+\begin{equation}
+    \dot{z} = A\,z + B\,u + B_d\,F_{ext}
+    \label{eq:plant}
+\end{equation}
+\begin{equation}
+    y = C\,z = \begin{bmatrix} 1 & 0 & 0 \end{bmatrix} z = z_1
+\end{equation}
+burada:
+\begin{itemize}
+    \item $A \in \mathbb{R}^{3\times3}$: Sistem matrisi (konum, hız ve basınç dinamiklerini bağlar)
+    \item $B \in \mathbb{R}^{3\times1}$: Giriş matrisi (valf akımının sisteme etkisi, birimi mA)
+    \item $u$: Kontrol sinyali (valf akımı [mA])
+    \item $B_d$: Bozucu giriş matrisi
+    \item $F_{ext}$: Dış kuvvet [N]
+\end{itemize}
+\end{kavram}
+
+\subsection{Hidrolik Sertlik Problemi}
+\label{subsec:stiffness}
+
+Hidrolik sistemlerin diğer mekanik sistemlerden en büyük farkı, $A$ matrisindeki basınç dinamiklerinin \textbf{çok yüksek kazançlara} sahip olmasıdır. Tipik bir hidrolik silindirde:
+
+\begin{equation}
+    A_{32} = -\frac{\beta_e (A_A + \alpha A_B)}{V_t} \sim \mathcal{O}(10^4 \text{ -- } 10^5)
+\end{equation}
+
+Bu, valf akımındaki 1~mA'lik bir değişikliğin, basıncı mikrosaniyeler içinde binlerce bar değiştirebileceği anlamına gelir. Kontrol teorisi açısından bu durum \textbf{``stiffness''} olarak adlandırılır ve kontrolcü tasarımında büyük zorluklara yol açar.
+
+\begin{dikkat}[Stiffness'in Pratik Anlamı]
+Bir insanın kolunu düşünün: Kolunuzu hızla hareket ettirdiğinizde kaslarınız yavaş yavaş güç üretir. Ancak hidrolikte ``kas'' (basınç) anında tepki verir. Bu, kontrolcüyü bir milisaniye bile geç kalmaya tahammül edemeyecek kadar hassas hale getirir. Eğer kontrolcü bu hıza ayak uyduramıyorsa, valf sürekli açılıp kapanır (\textbf{chattering}) ve sistemi mekanik olarak tahrip eder.
+\end{dikkat}
+
+% ============================================================
+\section{Referans Model Tasarımı}
+\label{sec:refmodel}
+% ============================================================
+
+MRAC'ta amaç, gerçek sistemin ($z$) davranışını, önceden tasarlanmış ideal bir referans modelin ($z_m$) davranışına eşitlemektir:
+
+\begin{equation}
+    \dot{z}_m = A_m\,z_m + B_m\,r
+    \label{eq:refmodel}
+\end{equation}
+
+burada:
+\begin{itemize}
+    \item $A_m$: Referans model sistem matrisi (Hurwitz -- tüm özdeğerleri sol yarı düzlemde)
+    \item $B_m$: Referans model giriş matrisi
+    \item $r$: Referans (hedef) sinyal [mm]
+\end{itemize}
+
+\subsection{Kutup Yerleştirme ile $A_m$ ve $B_m$ Tasarımı}
+
+Referans model, ``ideal dünyada sistemin nasıl davranmasını istiyoruz?'' sorusunun cevabıdır. Bu çalışmada \textbf{Kutup Yerleştirme (Pole Placement)} yöntemi kullanılmıştır.
+
+İstenen kapalı çevrim kutupları, sistemin bant genişliği, sönüm oranı ve yerleşme süresi gereksinimlerine göre seçilmiş ve MATLAB'ın \texttt{place()} fonksiyonu ile nominal geri besleme kazancı $K_m$ hesaplanmıştır:
+
+\begin{equation}
+    A_m = A - B \cdot K_m, \qquad B_m = B \cdot M_m
+\end{equation}
+
+Elde edilen referans model matrisleri:
+\begin{equation}
+    A_m = \begin{bmatrix}
+        0 & 1 & 0 \\
+        0 & -11.18 & 5914 \\
+        -40.58 & -2.262 & -234.8
+    \end{bmatrix}, \quad
+    B_m = \begin{bmatrix} 0 \\ 0 \\ 40.58 \end{bmatrix}
+\end{equation}
+
+\begin{kavram}[Referans Model Ne İfade Eder?]
+Bu matrisler, ``Valf ve silindir sınırsız güce sahip olsa, sürtünme olmasa ve parametreler tam bilinseydi, sistem bu referans sinyale nasıl tepki verirdi?'' sorusunun cevabıdır. MRAC'ın görevi, gerçek (nonlineer, belirsiz) sistemi bu ideal davranışa sürekli olarak yakınsamaya zorlamaktır.
+\end{kavram}
+
+\subsection{Başlangıç Koşullarının Önemi}
+
+Referans modelin başlangıç koşulları ($z_m(0)$), gerçek sistemin başlangıç koşullarıyla ($z(0)$) \textbf{tutarlı} olmalıdır. Aksi halde, simülasyonun ilk anında büyük bir izleme hatası oluşur ve adaptif kazançlar gereksiz yere şişer.
+
+\begin{dikkat}[Hapsolmuş Basınç]
+Hidrolik silindirlerde, piston durağan halde bile oda basınçları ($P_A, P_B$) tam olarak sıfır değildir. Bu, referans modelin 3.~durumunda ($z_{m3}$) sıfır olmayan bir başlangıç değeri yaratır. Modelin $A_m$ matrisindeki yüksek kazançlar ($5914$) bu ufak basınç farkını anlık bir hıza dönüştürür ve referans model bile ``hedef sıfırken'' kısa süreli bir konum sapması gösterir. Çözüm: $z_m(0) = [0;\; 0;\; 0]$ olarak ayarlamak veya $z_m(0) = z(0)$ eşitlemektir.
+\end{dikkat}
+
+% ============================================================
+\section{MRAC Kontrol Kuralı}
+\label{sec:mrac}
+% ============================================================
+
+\subsection{Kontrol Sinyalinin Yapısı}
+
+MRAC kontrol sinyali üç bileşenden oluşur:
+
+\begin{equation}
+    \boxed{u = \hat{L}^T z + \hat{M}\,r}
+    \label{eq:control_law}
+\end{equation}
+
+\begin{itemize}
+    \item $\hat{L} \in \mathbb{R}^{3\times1}$: \textbf{Geri besleme (feedback)} kazanç vektörü. Durum değişkenlerini ($z$) kullanarak hatayı düzeltir.
+    \item $\hat{M} \in \mathbb{R}$: \textbf{İleri besleme (feedforward)} kazancı. Referans sinyalini ($r$) ölçekleyerek sistemin hedefe doğru ilk hareketi başlatmasını sağlar.
+\end{itemize}
+
+\begin{kavram}[Her Terimin Günlük Hayattaki Karşılığı]
+Bir arabayı düşünün:
+\begin{itemize}
+    \item $\hat{L}^T z$: Direksiyon simidi (yoldan sapınca düzeltme yapar)
+    \item $\hat{M}\,r$: Navigasyon (hedefe gitmek için ilk yönlendirmeyi sağlar)
+\end{itemize}
+\end{kavram}
+
+\subsection{İzleme Hatası}
+
+Referans model ile gerçek sistem arasındaki fark, izleme hatası olarak tanımlanır:
+\begin{equation}
+    e = z - z_m
+    \label{eq:error}
+\end{equation}
+
+MRAC'ın amacı bu hatayı asimptotik olarak sıfıra götürmektir: $\lim_{t\to\infty} e(t) = 0$.
+
+\subsection{Eşleşme Koşulu (Matching Condition)}
+
+İdeal dünyada, bilinmeyen parametrelerin tam değerleri ($L^*, M^*$) şu koşulları sağlar:
+\begin{align}
+    A + B\,{L^*}^T &= A_m \label{eq:match_L}\\
+    B\,M^* &= B_m \label{eq:match_M}
+\end{align}
+
+Bu koşullar sağlandığında hata dinamiği tamamen kararlı hale gelir:
+\begin{equation}
+    \dot{e} = A_m\,e
+\end{equation}
+
+$A_m$ Hurwitz olduğundan $e(t) \to 0$ garanti altındadır.
+
+\subsection{Nominal İleri Besleme Kazancının Hesabı}
+\label{subsec:M_nominal}
+
+Eşleşme koşulundan (\ref{eq:match_M}), $M^*$'ın nominal değeri kolayca hesaplanır. $B$ matrisinin sıfır olmayan elemanı $B_3 = 10226$ ve $B_{m3} = 40.58$ ise:
+\begin{equation}
+    M^* = \frac{B_{m3}}{B_3} = \frac{40.58}{10226} \approx 0.003969
+\end{equation}
+
+Bu değer, $\hat{M}$'in başlangıç koşulu olarak kullanılır.
+
+% ============================================================
+\section{Lyapunov Tabanlı Adaptasyon Kuralları}
+\label{sec:adaptation}
+% ============================================================
+
+\subsection{Lyapunov Fonksiyonu}
+
+Adaptasyon kurallarının kararlılığını garanti etmek için şu Lyapunov aday fonksiyonu seçilir:
+
+\begin{equation}
+    V = e^T P\,e + \frac{1}{\Gamma_L}\,\tilde{L}^T\tilde{L} + \frac{1}{\Gamma_M}\,\tilde{M}^2
+    \label{eq:lyapunov}
+\end{equation}
+
+burada:
+\begin{itemize}
+    \item $P > 0$: Pozitif tanımlı simetrik matris (Lyapunov denklemi çözümü)
+    \item $\tilde{L} = \hat{L} - L^*$: Geri besleme kazancı parametre hatası
+    \item $\tilde{M} = \hat{M} - M^*$: İleri besleme kazancı parametre hatası
+    \item $\Gamma_L, \Gamma_M > 0$: Adaptasyon hızı parametreleri
+\end{itemize}
+
+\subsection{Lyapunov Denklemi ve $P$ Matrisinin Bulunması}
+\label{subsec:lyapunov_eq}
+
+$V$'nin türevinin negatif yarı-tanımlı olması ($\dot{V} \leq 0$) için, $P$ matrisinin şu \textbf{Lyapunov denklemini} sağlaması gerekir:
+
+\begin{equation}
+    \boxed{A_m^T P + P\,A_m = -Q}
+    \label{eq:lyapunov_eq}
+\end{equation}
+
+burada $Q > 0$ pozitif tanımlı bir ağırlık matrisidir. $Q$'nun seçimi, $P$'yi ve dolayısıyla tüm adaptasyon kurallarının davranışını doğrudan belirler.
+
+\begin{kavram}[Q Matrisinin Fiziksel Anlamı]
+$Q$ matrisi, ``Her bir durum hatası ($e_1, e_2, e_3$) ne kadar cezalandırılsın?'' sorusunun cevabıdır:
+\begin{itemize}
+    \item $Q_{11}$: Konum hatasının cezası
+    \item $Q_{22}$: Hız hatasının cezası
+    \item $Q_{33}$: Basınç hatasının cezası
+\end{itemize}
+\end{kavram}
+
+\subsection{$Q$ Matrisi Tasarımı: Hidrolik Sertlik Tuzağı}
+\label{subsec:Q_design}
+
+Bu, tüm tasarımın en kritik adımıdır ve hidrolik MRAC'ı diğer uygulamalardan ayıran temel noktadır.
+
+\subsubsection{Problem: Naif $Q$ Seçimi}
+Eğer $Q = I$ (birim matris) seçilirse, Lyapunov denkleminin çözümü olan $P$ matrisinde basınç durumunun ($e_3$) katsayısı, konum durumunun ($e_1$) katsayısından \textbf{binlerce kat büyük} olur. Bunun nedeni, $A_m$ matrisindeki basınç dinamiklerinin çok yüksek kazançlı olmasıdır (Bkz.\ B\"ol\"um~\ref{subsec:stiffness}).
+
+Bu durumda adaptasyon kuralı, konum hatasını neredeyse tamamen görmezden gelir ve tüm dikkatini basınç hatasına verir. Sonuç: Valf sürekli açılıp kapanır (\textbf{chattering}).
+
+\subsubsection{Çözüm: Basıncı $Q$ ile Bastırma}
+\label{subsubsec:Q_solution}
+
+$Q$ matrisinde basıncın ($e_3$) cezasını çok küçük tutarak, $P$ matrisinde konum ve hız durumlarının baskın hale gelmesi sağlanır:
+
+\begin{equation}
+    \boxed{Q = \text{diag}\left(1,\; 0.01,\; 10^{-12}\right)}
+    \label{eq:Q_final}
+\end{equation}
+
+Bu seçimle elde edilen $P$ matrisi:
+\begin{equation}
+    P = \begin{bmatrix}
+        0.1214 & 0.0008 & 0.0123 \\
+        0.0008 & 0.0001 & 0.0021 \\
+        0.0123 & 0.0021 & 0.0522
+    \end{bmatrix}
+\end{equation}
+
+\begin{dikkat}[Neden $10^{-12}$?]
+$Q_{33} = 10^{-12}$, basınç hatasına neredeyse sıfır ceza vermek anlamına gelir. Ancak \textbf{tam sıfır yapılamaz}, çünkü $Q$'nun pozitif tanımlı olması gerekir. $10^{-12}$ yeterince küçük olup pozitif tanımlılığı korur.
+\end{dikkat}
+
+\subsection{Adaptasyon Kuralları}
+
+$\dot{V} \leq 0$ koşulunu sağlayan adaptasyon kuralları şu şekilde türetilir:
+
+\subsubsection{Geri Besleme Kazancı ($\hat{L}$)}
+\begin{equation}
+    \boxed{\dot{\hat{L}} = -\Gamma_L \cdot \underbrace{\left(e^T P\,B\right)}_{\text{skaler terim}} \cdot z \cdot \Lambda - \sigma_L \cdot \|e\| \cdot \hat{L}}
+    \label{eq:L_update}
+\end{equation}
+
+\subsubsection{İleri Besleme Kazancı ($\hat{M}$)}
+\begin{equation}
+    \boxed{\dot{\hat{M}} = -\Gamma_M \cdot \left(e^T P\,B\right) \cdot r - \sigma_M \cdot \|e\| \cdot \hat{M}}
+    \label{eq:M_update}
+\end{equation}
+
+Burada her kuralda ortak olan $e^T P\,B$ terimi, tek bir skaler sayıdır ve tüm adaptasyon mekanizmasının ``yakıtı''dır.
+
+% ============================================================
+\section{Tasarım Zorlukları ve Mühendislik Çözümleri}
+\label{sec:challenges}
+% ============================================================
+
+\subsection{Problem 1: Basınç Kazancının Adaptasyonu (Chattering)}
+\label{subsec:partial_adaptation}
+
+$Q$ matrisi ile $P$'deki basınç ağırlığını bastırmamıza rağmen, $P$ matrisinin çapraz dışı (off-diagonal) elemanları nedeniyle basıncın ($z_3$) adaptasyon kuralındaki etkisi tamamen sıfırlanamaz.
+
+\subsubsection{Fiziksel Açıklama}
+Lyapunov denklemi ($A_m^T P + P A_m = -Q$), $A_m$ matrisindeki fiziksel bağları (basınç $\to$ ivme $\to$ hız $\to$ konum) $P$'ye yansıtır. Konum hatasının kararlı olabilmesi için $P$ matrisinin basınçla dolaylı olarak bağlantılı kalması kaçınılmazdır.
+
+Bu durum, adaptasyon kuralında (\ref{eq:L_update}) $\hat{L}_3$ (basınç geri besleme kazancı) bileşeninin güncellenmesine ve basıncın anlık tepki karakteri nedeniyle chattering'e yol açar.
+
+\subsubsection{Çözüm: Kısmi Durum Geri Beslemeli Adaptasyon}
+
+Basınç kazancının ($\hat{L}_3$) adaptasyonunu tamamen dondurmak (freeze) için, adaptasyon kuralına bir \textbf{maske vektörü} ($\Lambda$) eklenir:
+
+\begin{equation}
+    \Lambda = \text{diag}(1,\; 1,\; 0)
+    \label{eq:mask}
+\end{equation}
+
+Bu maske ile:
+\begin{itemize}
+    \item $\hat{L}_1$ (konum kazancı): Serbestçe adapte olur $\checkmark$
+    \item $\hat{L}_2$ (hız kazancı): Serbestçe adapte olur $\checkmark$
+    \item $\hat{L}_3$ (basınç kazancı): Başlangıç değerinde ($K_{m3}$) kilitli kalır $\checkmark$
+\end{itemize}
+
+\begin{cozum}[Neden Bu Yöntem Doğru?]
+Basınç kazancının ideal değeri ($K_{m3}^*$), kutup yerleştirme ile zaten çok hassas bir şekilde hesaplanmıştır. Bu değerin birkaç yüzde sapması bile sistemi kararsızlaştırabilir. MRAC'ın bu kazancı ``öğrenmeye çalışması'' sırasında yapacağı en ufak salınım, basıncın anlık tepki karakteri nedeniyle anında chattering'e dönüşür. Bu nedenle, bu kazancı nominal değerinde dondurmak hem teorik hem pratik olarak en güvenli yaklaşımdır.
+
+Bu yöntem, hidrolik MRAC literatüründe \textbf{``Partial State Feedback Adaptation''} olarak bilinir ve standart bir uygulamadır.
+\end{cozum}
+
+\subsection{Problem 2: Kazanç Şişmesi ve $e$-Modifikasyonu}
+\label{subsec:sigma}
+
+Saf (pure) MRAC'ta, sistem hedefe ulaştığında ($e \to 0$) adaptasyon kuralının türevi de sıfıra gider ($\dot{\hat{L}} \to 0$). Ancak kazançların kendisi sıfırlanmaz; son ulaştıkları değerde kalırlar. Bu durum iki tehlike yaratır:
+
+\begin{enumerate}
+    \item \textbf{Rüzgâr Etkisi (Parameter Wind-up):} Ölçüm gürültüsü, sayısal hatalar veya modellenmemiş dinamikler, hata sinyalinde sürekli küçük salınımlara neden olur. Saf MRAC bu salınımları gerçek hata sanıp kazançları yavaş yavaş büyütür.
+    \item \textbf{Sürtünme İntegratörü:} Nonlineer sürtünme nedeniyle piston hedefe tam olarak ulaşamaz (mikron mertebesinde kalıcı hata). MRAC bu hatayı kapatmak için kazançları süresiz olarak artırır.
+\end{enumerate}
+
+\subsubsection{Çözüm: $e$-Modifikasyonu (Hata Orantılı Sızıntı)}
+
+Her adaptasyon kuralına, kazançları sıfıra doğru ``çeken'' ve hata miktarıyla orantılı çalışan bir sönümleme (sızıntı) terimi eklenir:
+
+\begin{equation}
+    \dot{\hat{L}} = -\Gamma_L \cdot (e^T P B) \cdot z \cdot \Lambda \underbrace{- \sigma_L \cdot \|e\| \cdot \hat{L}}_{\text{e-modifikasyon terimi}}
+\end{equation}
+
+Fiziksel analoji: $\sigma_L$, kazancın bağlı olduğu bir yay gibidir, ancak bu yayın sertliği hata büyükken (yay devrede) yüksek, hata sıfıra yaklaştığında (yay gevşek) çok düşüktür. Standart $\sigma$-modifikasyonuna kıyasla $e$-modifikasyonu, kalıcı hatayı (steady-state error) daha az bozar.
+
+\begin{kavram}[$\sigma$ Parametresinin Etkisi]
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{$\sigma$ Değeri} & \textbf{Avantajı} & \textbf{Dezavantajı} \\
+\midrule
+$\sigma = 0$ (Saf MRAC) & Teorik sıfır hata & Kazanç şişmesi riski \\
+$\sigma = 0.01$ & Düşük fren, hızlı adaptasyon & Gürültüye kısmen duyarlı \\
+$\sigma = 1$ & Çok pürüzsüz, güçlü koruma & Küçük kalıcı hata riski \\
+$\sigma = 10$ & Aşırı fren, çok yavaş & Adaptasyon kapasitesi düşer \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{kavram}
+
+Bu çalışmada, simülasyon testleri sonucunda $\sigma_L = \sigma_M = 1$ değeri, pürüzsüz kontrol sinyali ve yeterli adaptasyon kapasitesi arasındaki en iyi dengeyi sağlamıştır.
+
+\subsection{Problem 3: Başlangıç Kazanç İşaretleri}
+\label{subsec:sign}
+
+MRAC'ın başlangıç kazançları ($\hat{L}(0) = K_m$), Simulink modelindeki kontrol kuralının \textbf{işaret konvansiyonuyla} tutarlı olmalıdır.
+
+Eğer kontrolcü bloğu $u = -\hat{L}^T z$ yapısındaysa (başında eksi var), başlangıç koşulu $\hat{L}(0) = +K_m$ olmalıdır. Ancak eğer blok $u = +\hat{L}^T z$ yapısındaysa, $\hat{L}(0) = -K_m$ olmalıdır.
+
+\begin{dikkat}[Tek Karakter -- Koca Felaket]
+Bu işaret hatası, kontrol mühendisliğinde en sık yapılan ve en zor tespit edilen hatalardandır. Yanlış işaret, sistemi \textbf{pozitif geri beslemeye} sokar: Hata büyüdükçe kontrolcü hatayı düzeltmek yerine daha da büyütür. MRAC'ın gücü sayesinde algoritma birkaç yüz milisaniye içinde bu yanlış işareti ``öğrenip'' düzeltebilir, ancak bu süre zarfında oluşan büyük geçici sapma (overshoot) istenmeyen bir durumdur.
+\end{dikkat}
+
+
+
+% ============================================================
+\section{Adaptasyon Parametrelerinin Ayarlanması}
+\label{sec:tuning}
+% ============================================================
+
+\subsection{Adaptasyon Hızı ($\Gamma$)}
+
+$\Gamma$ parametresi, kazançların ne kadar hızlı güncelleneceğini belirler. Fiziksel olarak ``öğrenme hızı''dır.
+
+\begin{center}
+\begin{tabular}{lp{5cm}p{5cm}}
+\toprule
+\textbf{$\Gamma$ Değeri} & \textbf{Düşükse} & \textbf{Yüksekse} \\
+\midrule
+$\Gamma_L$ & Yavaş hata düzeltme, pürüzsüz & Hızlı düzeltme, chattering riski \\
+$\Gamma_M$ & Yavaş referans takibi & Hızlı takip, overshoot riski \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Bu çalışmada, iteratif simülasyon testleri sonucunda:
+\begin{equation}
+    \Gamma_L = \Gamma_M = 50 \times 10^{-3}, \quad \sigma_L = \sigma_M = 1
+\end{equation}
+değerleri, overshoot'suz hızlı takip ve pürüzsüz kontrol sinyali arasındaki optimum dengeyi sağlamıştır.
+
+\subsection{Ayar Stratejisi (Tuning Recipe)}
+
+\begin{enumerate}
+    \item \textbf{Başlangıç:} $\Gamma = 10^{-4}$ gibi çok küçük bir değerle başlayın. Sistem sabit kazançlı (Pole Placement) kontrolcü gibi davranacaktır.
+    \item \textbf{Artırma:} $\Gamma$'yı kademeli olarak artırın ($3 \times 10^{-4} \to 10^{-3} \to 3 \times 10^{-3} \to \ldots$).
+    \item \textbf{Gözlem:} Her adımda şunlara bakın:
+    \begin{itemize}
+        \item Kontrol sinyali ($u$) chattering yapıyor mu?
+        \item Kazançlar ($\hat{L}, \hat{M}$) şişip patlıyor mu?
+        \item Yerleşme süresi kabul edilebilir mi?
+    \end{itemize}
+    \item \textbf{Durdurma:} Chattering başladığı veya kazançlar aşırı salınım yaptığı anda bir önceki değere geri dönün.
+\end{enumerate}
+
+% ============================================================
+\section{Simülasyon Sonuçları}
+\label{sec:results}
+% ============================================================
+
+Tüm simülasyonlar, sürtünme (Coulomb + viskoz), valf dinamikleri ve silindir asimetrisi içeren \textbf{tam nonlineer} Simulink modelinde gerçekleştirilmiştir.
+
+\subsection{Test 1: Stabilizasyon (Regülasyon)}
+
+\textbf{Senaryo:} Piston çeşitli başlangıç konumlarından serbest bırakılır, hedef $r = 0$~mm.
+
+\textbf{Sonuç:} MRAC, pistonu tüm başlangıç noktalarından hedefe pürüzsüz bir şekilde taşımıştır. $\sigma$-modifikasyonu sayesinde kazançlar sınırlı kalmış, chattering gözlenmemiştir.
+
+\subsection{Test 2: Adım Yanıtı (Step Response)}
+
+\textbf{Senaryo:} $r = 0 \to 50$~mm adım referansı, $t = 1$~s'de uygulanır.
+
+\textbf{Sonuç:} $\hat{M}$ adaptasyonu aktifken, piston referans modeli milimetrik doğrulukla takip etmiştir. $\hat{M}$, teorik değer olan $0.004$'ten nonlineer sistemin gerçek ihtiyacı olan $0.002$'ye yakınsamıştır. $\Gamma = 50 \times 10^{-3}$ ile overshoot gözlenmemiştir.
+
+\subsection{Test 3: Sinüzoidal Yörünge Takibi}
+
+\textbf{Senaryo:} $r(t) = 30\sin(2\pi \cdot 0.2 \cdot t)$~mm sinüs referansı.
+
+\textbf{Sonuç:} Konum takibi mükemmeldir. Hız ($z_2$) sinyalinde, pistonun yön değiştirdiği noktalarda \textbf{stick-slip} (yapış-kayış) sürtünmesinden kaynaklanan anlık pikler gözlenmiştir. Bu pikler, nonlineer sürtünme modelinin gerçekçiliğini doğrulamakta olup, konum sinyalinde (integral etkisi nedeniyle) görünmemektedir.
+
+\subsection{Test 4: Dış Kuvvet Bozucusu}
+
+\textbf{Senaryo:} $F_{ext} = 90$~N sabit dış kuvvet uygulanır.
+
+\textbf{Sonuç:} Kontrolcü mevcut yapısında ($u = \hat{L}^T z + \hat{M} r$) referansı takip edememiştir. Dış kuvveti karşılamak için sabit bir akım bileşenine ihtiyaç vardır. $\hat{L}$ kazançları bu sabit akımı üretemediği için sistem nominal değerlerinden sapmış ve referansta izleme hatası kalmıştır. Bu sorunu çözmek için ilerideki çalışmalarda adaptif bir bias teriminin eklenebileceği öngörülmüştür.
+
+% ============================================================
+\section{Kazanç Grafiklerinin Okunması}
+\label{sec:gain_analysis}
+% ============================================================
+
+MRAC'ın gerçek gücünü görmek için, yalnızca çıkış ($z_1$) değil, adaptif kazançların ($\hat{L}, \hat{M}$) zamanla değişimini incelemek kritik önem taşır.
+
+\subsection{$\hat{L}_1$ (Konum Kazancı)}
+\textbf{Gözlem:} Sistem hedefe ulaştıktan sonra bile çok yavaş bir tırmanma gösterir.\\
+\textbf{Yorum:} Bu, MRAC'ın nonlineer sürtünmeyi (stiction) yenmek için bir \textbf{integratör} gibi davrandığının göstergesidir. Statik sürtünme, pistonu tam hedefe oturmaktan alıkoyar ve MRAC, konum kazancını yavaşça artırarak bu sürtünmeyi aşacak ufak bir akım biriktirir.
+
+\subsection{$\hat{L}_2$ (Hız Kazancı)}
+\textbf{Gözlem:} Adım yanıtının ilk anında hızla değişir, sonra sabitlenir.\\
+\textbf{Yorum:} Kutup yerleştirme, hidroliğin doğal sönümlemesini yenmek için agresif bir hız kazancı üretir. Gerçek sistemde bu kazanç aşırı geldiğinde, MRAC anında müdahale ederek onu daha yumuşak bir değere çeker. Bu, MRAC'ın nominal kontrolcünün hatasını ``düzelttiğinin'' doğrudan kanıtıdır.
+
+\subsection{$\hat{L}_3$ (Basınç Kazancı)}
+\textbf{Gözlem:} Düz bir yatay çizgi olarak kalır.\\
+\textbf{Yorum:} $\Lambda = \text{diag}(1,1,0)$ maskesinin kusursuz çalıştığının ispatıdır. Basınç kazancı, kutup yerleştirme ile hesaplanan güvenli nominal değerinde kilitli kalmıştır.
+
+\subsection{$\hat{M}$ (İleri Besleme Kazancı)}
+\textbf{Gözlem:} Adım referansı verildiğinde hızla değişir ve yeni bir değerde sabitlenir.\\
+\textbf{Yorum:} Lineer teori $\hat{M} = 0.004$ öngörürken, nonlineer sistem (sürtünme vb.) daha düşük bir değere ihtiyaç duyar. MRAC bu farkı tespit edip $\hat{M}$'i doğru değere yakınsatır.
+
+% ============================================================
+\section{Parametre Özet Tablosu}
+\label{sec:summary_table}
+% ============================================================
+
+\begin{table}[H]
+\centering
+\caption{MRAC Tasarım Parametreleri ve Nihai Değerleri}
+\label{tab:params}
+\begin{tabular}{llll}
+\toprule
+\textbf{Parametre} & \textbf{Sembol} & \textbf{Değer} & \textbf{Açıklama} \\
+\midrule
+\multicolumn{4}{l}{\textbf{Lyapunov / Q Matrisi}} \\
+\midrule
+Konum ağırlığı & $Q_{11}$ & $1$ & Birincil kontrol değişkeni \\
+Hız ağırlığı & $Q_{22}$ & $0.01$ & Yardımcı sönümleme \\
+Basınç ağırlığı & $Q_{33}$ & $10^{-12}$ & Stiffness bastırma \\
+\midrule
+\multicolumn{4}{l}{\textbf{Adaptasyon Hızları}} \\
+\midrule
+Geri besleme & $\Gamma_L$ & $50 \times 10^{-3}$ & Kazanç güncelleme hızı \\
+İleri besleme & $\Gamma_M$ & $50 \times 10^{-3}$ & Referans ölçekleme hızı \\
+\midrule
+\multicolumn{4}{l}{\textbf{Sızıntı (e-mod)}} \\
+\midrule
+Geri besleme freni & $\sigma_L$ & $1$ & Kazanç şişmesi önleme \\
+İleri besleme freni & $\sigma_M$ & $1$ & $\hat{M}$ sınırlama \\
+\midrule
+\multicolumn{4}{l}{\textbf{Adaptasyon Maskesi}} \\
+\midrule
+Maske vektörü & $\Lambda$ & $\text{diag}(1,1,0)$ & Basınç kazancı dondurulmuş \\
+\midrule
+\multicolumn{4}{l}{\textbf{Başlangıç Koşulları}} \\
+\midrule
+$\hat{L}$ başlangıç & $\hat{L}(0)$ & $K_m$ & Pole Placement kazançları \\
+$\hat{M}$ başlangıç & $\hat{M}(0)$ & $0.003969$ & $B_{m3}/B_3$ \\
+Ref. model & $z_m(0)$ & $[0;\;0;\;0]$ & Temiz başlangıç \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Sonuç ve Tartışma}
+\label{sec:conclusion}
+% ============================================================
+
+Bu çalışmada, elektrohidrolik servo sistemlerde Model Referanslı Adaptif Kontrol (MRAC) tasarımı sıfırdan gerçekleştirilmiş ve aşağıdaki temel bulgulara ulaşılmıştır:
+
+\begin{enumerate}
+    \item \textbf{Hidrolik Sertlik, MRAC Tasarımının En Büyük Düşmanıdır:} Standart $Q = I$ seçimi, adaptasyon kuralını basınç tarafından domine edilen, kontrol edilemez bir yapıya dönüştürür. $Q$ matrisinde basıncın ağırlığının $10^{-12}$ mertebesinde bastırılması ve ek olarak basınç kazancının adaptasyondan çıkarılması (\textbf{kısmi durum geri besleme}) zorunludur.
+
+    \item \textbf{$e$-Modifikasyonu Pratik Bir Zorunluluktur:} Saf MRAC, ölçüm gürültüsü ve modellenmemiş sürtünme karşısında kazanç şişmesine maruz kalır. Hata ile orantılı çalışan $e$-modifikasyonu (sızıntı) mekanizması, kazanç şişmesini önlerken standart sızıntılara kıyasla kalıcı hatayı en aza indirmede etkili olmuştur.
+
+    \item \textbf{Dış Kuvvet Reddi İçin Ek Mekanizma Şarttır:} Standart MRAC yapısı ($u = \hat{L}^T z + \hat{M} r$), sabit dış kuvvetleri telafi edemez. Dış kuvvet altındaki testlerde sistem takibi sağlayamamıştır. İleride adaptif bir bias terimi eklenmesi, bu kuvveti karşılamak için gerekli olan DC bileşenini sağlayacaktır.
+
+    \item \textbf{MRAC, Nominal Kontrolcünün Hatalarını Düzeltir:} Kutup yerleştirme ile hesaplanan nominal kazançlar ($K_m$, $M_m$) lineer modele dayandığı için, nonlineer gerçek sistemde uyumsuzluklar kaçınılmazdır. MRAC, bu uyumsuzlukları çevrimiçi olarak tespit edip kazançları uygun değerlere yakınsatarak, sabit kazançlı kontrolcülerin (PID, LQR, Pole Placement) ulaşamayacağı performans ve dayanıklılık seviyelerine erişir.
+
+    \item \textbf{Sürtünme, Hız Sinyalinde Görünür:} Stick-slip (yapış-kayış) sürtünmesi, pistonun yön değiştirdiği anlarda hız sinyalinde anlık pikler yaratır. Bu pikler konum sinyalinde görünmez (integral yumuşatması) ve MRAC'ın bir hatası değil, nonlineer sürtünme modelinin gerçekçiliğinin kanıtıdır.
+\end{enumerate}
+
+\begin{kavram}[Son Söz]
+Bu çalışma, MRAC'ın ``kara kutu'' bir araç olmadığını, aksine her parametresinin arkasında derin bir fiziksel anlam yatan, mühendislik sezgisiyle birleştirildiğinde çok güçlü bir kontrol aracı olduğunu göstermiştir. Hidrolik sistemlerin doğasından kaynaklanan zorluklar (sertlik, sürtünme, asimetri), standart MRAC formülasyonunun ötesinde mühendislik müdahaleleri (Q matrisi tasarımı, kısmi adaptasyon, bias terimi) gerektirmektedir. Bu müdahalelerin sistematik olarak uygulanması, endüstriyel seviyede performans ve dayanıklılık sağlamaktadır.
+\end{kavram}
+
+% ============================================================
+% KAYNAKLAR (isteğe bağlı eklenebilir)
+% ============================================================
+\begin{thebibliography}{9}
+\bibitem{ioannou} P.~A.~Ioannou ve J.~Sun, \textit{Robust Adaptive Control}, Prentice Hall, 1996.
+\bibitem{narendra} K.~S.~Narendra ve A.~M.~Annaswamy, \textit{Stable Adaptive Systems}, Dover Publications, 2005.
+\bibitem{merritt} H.~E.~Merritt, \textit{Hydraulic Control Systems}, John Wiley \& Sons, 1967.
+\bibitem{jelali} M.~Jelali ve A.~Kroll, \textit{Hydraulic Servo-systems: Modelling, Identification and Control}, Springer, 2003.
+\end{thebibliography}
+
+\end{document}
